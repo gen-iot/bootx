@@ -2,11 +2,9 @@ package web
 
 import (
 	"fmt"
-	"github.com/gen-iot/log"
 	"github.com/gen-iot/std"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/pkg/errors"
 	"sync"
 )
 
@@ -68,12 +66,11 @@ func (web *Web) GetEcho() *echo.Echo {
 }
 
 func (web *Web) execute() {
-	if err := std.ValidateStruct(config); err != nil {
-		log.PANIC.Println(logTag, errors.WithMessage(err, "Web配置不正确"))
-	}
+	err := std.ValidateStruct(config)
+	std.AssertError(err, "web配置不正确")
 	addr := fmt.Sprintf(":%d", config.Port)
 	if err := web.echo.Start(addr); err != nil {
-		log.WARN.Println(logTag, " got error when shutting down: ", err)
+		fmt.Println(logTag, " got error when shutting down: ", err)
 	}
 }
 
@@ -99,20 +96,20 @@ func Init() {
 //初始化Web服务
 func InitWithConfig(conf Config) {
 	config = conf
-	log.STD.Println(logTag, "web(port=", config.Port, ",debug=", config.Debug, ") init  ...")
+	fmt.Println(logTag, "web(port=", config.Port, ",debug=", config.Debug, ") init  ...")
 	GetWeb()
 }
 
 func Execute() {
-	log.STD.Println(logTag, "web listen on : ", config.Port)
+	fmt.Println(logTag, "web listen on : ", config.Port)
 	go func() {
 		GetWeb().execute()
 	}()
 }
 
 func Free() {
-	log.STD.Println(logTag, "stopping ...")
+	fmt.Println(logTag, "stopping ...")
 	if err := GetWeb().free(); err != nil {
-		log.WARN.Println(logTag, " got error when shutting down: ", err)
+		fmt.Println(logTag, " got error when shutting down: ", err)
 	}
 }
