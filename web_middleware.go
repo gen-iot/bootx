@@ -1,4 +1,4 @@
-package web
+package bootx
 
 import (
 	"github.com/gen-iot/std"

@@ -1,9 +1,8 @@
-package web
+package bootx
 
 import (
 	"bufio"
 	"bytes"
-	"github.com/gen-iot/log"
 	"github.com/labstack/echo/v4"
 	"io"
 	"io/ioutil"
@@ -15,19 +14,19 @@ import (
 func PrintHandler(ctx echo.Context, reqData []byte, resData []byte) {
 	req := ctx.Request()
 	if req.ContentLength == 0 {
-		log.DEBUG.Printf("%s %s %s %s \nresponse: %s",
-			logTag, req.RemoteAddr, req.Method, req.RequestURI, resData,
+		logger.Printf("%s %s %s \nresponse: %s",
+			req.RemoteAddr, req.Method, req.RequestURI, resData,
 		)
 	} else {
 		ctype := req.Header.Get(echo.HeaderContentType)
 		//only dump json
 		if strings.HasPrefix(ctype, echo.MIMEApplicationJSON) {
-			log.DEBUG.Printf("%s %s %s %s \nrequest:%s \nresponse: %s",
-				logTag, req.RemoteAddr, req.Method, req.RequestURI, reqData, resData,
+			logger.Printf("%s %s %s \nrequest:%s \nresponse: %s",
+				req.RemoteAddr, req.Method, req.RequestURI, reqData, resData,
 			)
 		} else {
-			log.DEBUG.Printf("%s %s %s %s \nrequest:%s \nresponse: %s",
-				logTag, req.RemoteAddr, req.Method, req.RequestURI, ctype, resData,
+			logger.Printf("%s %s %s \nrequest:%s \nresponse: %s",
+				req.RemoteAddr, req.Method, req.RequestURI, ctype, resData,
 			)
 		}
 	}

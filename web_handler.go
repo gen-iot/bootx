@@ -1,8 +1,7 @@
-package web
+package bootx
 
 import (
 	"fmt"
-	"github.com/gen-iot/log"
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 	"net/http"
@@ -21,24 +20,24 @@ func defaultErrorHandler(err error, ctx echo.Context) {
 					"message": msg,
 				}, jsonIndent)
 			if e != nil {
-				log.ERROR.Println(e)
+				logger.Printf("error while response :%v", err)
 			}
 		}
 	default:
 		{
-			log.ERROR.Printf("unknown error :%v", err)
-			msg := "unknown error "
-			if config.Debug {
+			logger.Printf("unexpect error :%v", err)
+			msg := "unexpect error "
+			if webConfig.Debug {
 				msg = fmt.Sprintf("%v", err)
 			}
 			//500
-			e := ctx.JSONPretty(http.StatusInternalServerError,
+			e := ctx.JSONPretty(http.StatusOK,
 				map[string]interface{}{
 					"code":    -1,
 					"message": msg,
 				}, jsonIndent)
 			if e != nil {
-				log.ERROR.Println(e)
+				logger.Printf("error while response :%v", err)
 			}
 		}
 	}

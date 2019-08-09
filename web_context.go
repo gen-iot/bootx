@@ -1,4 +1,4 @@
-package web
+package bootx
 
 import (
 	"github.com/gen-iot/std"
@@ -8,6 +8,7 @@ import (
 )
 
 type Context interface {
+	echo.Context
 	Id() string
 
 	SetUserAuthData(data interface{})
@@ -128,6 +129,7 @@ func ConvertFromEchoCtx(h func(Context) (err error)) echo.HandlerFunc {
 	}
 }
 
+//noinspection ALL
 func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc {
 	hv, ok := handler.(reflect.Value)
 	if !ok {
@@ -164,7 +166,7 @@ func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc
 		}
 		fn := mid.buildChain(buildInvoke(hv, flags))
 		fn(ctx)
-		return ctx.End()
+		return ctx.Err()
 	})
 }
 
@@ -192,7 +194,6 @@ func buildInvoke(handlerV reflect.Value, flags uint32) HandlerFunc {
 		if !outs[rspErrIdx].IsNil() { // check error
 			err := outs[rspErrIdx].Interface().(error)
 			ctx.SetError(err)
-			return
 		}
 		if rspDataIdx != -1 {
 			rsp := outs[rspDataIdx].Interface()

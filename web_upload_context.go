@@ -1,4 +1,4 @@
-package web
+package bootx
 
 import (
 	"github.com/labstack/echo/v4"
@@ -15,9 +15,6 @@ const (
 	KSizeGb   = KSizeMb * 1024
 )
 
-/**
- * Created by xuchao on 2019-04-09 .
- */
 type UploadContext struct {
 	echo.Context
 	FormKeyName     string

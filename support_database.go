@@ -1,7 +1,6 @@
-package db
+package bootx
 
 import (
-	"fmt"
 	"github.com/gen-iot/std"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mssql"
@@ -11,11 +10,7 @@ import (
 	"sync"
 )
 
-const (
-	logTag = "[DataBase]"
-)
-
-type Config struct {
+type DBConfig struct {
 	DatabaseType     string `json:"databaseType" validate:"oneof=mysql postgres sqlite3 mssql"`
 	ConnStr          string `json:"connStr" validate:"required"`
 	ShowSql          bool   `json:"showSql"`
@@ -23,7 +18,7 @@ type Config struct {
 	MaxOpenConnCount int    `json:"maxOpenConn" validate:"min=0,max=1000"`
 }
 
-var DefaultConfig = Config{
+var DBDefaultConfig = DBConfig{
 	DatabaseType:     "",
 	ConnStr:          "",
 	ShowSql:          false,
@@ -35,32 +30,33 @@ type DataBase struct {
 	*gorm.DB
 }
 
-var once = sync.Once{}
+var dbOnce = sync.Once{}
 var gDb *DataBase = nil
+var dbConfig *DBConfig = nil
 
-var config = DefaultConfig
-
-func GetDB() *DataBase {
-	once.Do(func() {
-		err := std.ValidateStruct(config)
+func DB() *DataBase {
+	std.Assert(dbConfig != nil, "database not config yet")
+	dbOnce.Do(func() {
+		err := std.ValidateStruct(dbConfig)
 		std.AssertError(err, "数据库配置不正确")
-		db, err := gorm.Open(config.DatabaseType, config.ConnStr)
+		logger.Printf("database db(%s) init ...", dbConfig.ConnStr)
+		db, err := gorm.Open(dbConfig.DatabaseType, dbConfig.ConnStr)
 		std.AssertError(err, "database open failed")
-		if config.ShowSql {
+		if dbConfig.ShowSql {
 			//use gorm default logger
 			//gDb.SetLogger(log.DEBUG)
 			db.LogMode(true)
 		}
-		//config connection pool
-		db.DB().SetMaxIdleConns(config.MaxIdleConnCount)
-		db.DB().SetMaxOpenConns(config.MaxOpenConnCount)
+		//dbConfig connection pool
+		db.DB().SetMaxIdleConns(dbConfig.MaxIdleConnCount)
+		db.DB().SetMaxOpenConns(dbConfig.MaxOpenConnCount)
 		gDb = &DataBase{db}
 	})
 	return gDb
 }
 
-func Tx(txFunc func(*gorm.DB) error) (err error) {
-	tx := GetDB().Begin()
+func (this *DataBase) Tx(txFunc func(*gorm.DB) error) (err error) {
+	tx := this.Begin()
 	defer tx.Rollback()
 	if err = tx.Error; err != nil {
 		return
@@ -71,25 +67,24 @@ func Tx(txFunc func(*gorm.DB) error) (err error) {
 	return tx.Commit().Error
 }
 
-func Init(dbType string, connStr string) {
-	InitWithConfig(Config{
+func dbInit(dbType string, connStr string) {
+	dbInitWithConfig(&DBConfig{
 		DatabaseType:     dbType,
 		ConnStr:          connStr,
-		ShowSql:          DefaultConfig.ShowSql,
-		MaxIdleConnCount: DefaultConfig.MaxIdleConnCount,
-		MaxOpenConnCount: DefaultConfig.MaxOpenConnCount,
+		ShowSql:          DBDefaultConfig.ShowSql,
+		MaxIdleConnCount: DBDefaultConfig.MaxIdleConnCount,
+		MaxOpenConnCount: DBDefaultConfig.MaxOpenConnCount,
 	})
 }
 
-func InitWithConfig(conf Config) {
-	config = conf
-	fmt.Printf("%s db(%s) init ...", logTag, config.ConnStr)
-	GetDB()
+func dbInitWithConfig(conf *DBConfig) {
+	dbConfig = conf
+	DB()
 }
 
-func Cleanup() {
-	fmt.Printf("%s cleanup ...", logTag)
+func dbCleanup() {
+	logger.Println("database cleanup ...")
 	if err := gDb.Close(); err != nil {
-		fmt.Printf("%s error occurred while database close : %s ...", logTag, err)
+		logger.Printf("%s error occurred while database close : %s ...", logTag, err)
 	}
 }
