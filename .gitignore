@@ -2,7 +2,6 @@
 .vscode/
 vendor/
 Gopkg.lock
-oauth
 # Binaries for programs and plugins
 *.exe
 *.exe~
