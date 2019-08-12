@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -39,90 +38,12 @@ const (
 	Lv2OnlyOnce
 )
 
-const kDefaultConnTimeout = 30
-
-type MqttConfig struct {
-	MqttPubApiAddr string `json:"mqttPubApiAddr" validate:"required"`
-	Qos            Qos    `json:"qos"`
-	RetainMsg      bool   `json:"retainMsg"`
-	ConnTimeout    int    `json:"connTimeout"`
-	UserName       string `json:"username"`
-	Password       string `json:"password"`
-	Debug          bool   `json:"debug"`
-	ClientIdPrefix string `json:"clientIdPrefix"`
-}
-
-var MqttDefaultConfig = &MqttConfig{
-	MqttPubApiAddr: "http://127.0.0.1:8080/api/v2/mqtt/publish",
-	Qos:            Lv2OnlyOnce,
-	RetainMsg:      false,
-	ConnTimeout:    kDefaultConnTimeout,
-	UserName:       "admin",
-	Password:       "pujie123",
-	Debug:          false,
-	ClientIdPrefix: "",
-}
-
-const ApplicationJson = "application/json"
-
-func newHttpClient() *http.Client {
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-		DisableKeepAlives: true,
-	}
-	return &http.Client{
-		Transport: transport,
-		Timeout:   time.Second * time.Duration(mqttConfig.ConnTimeout),
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			req.SetBasicAuth(mqttConfig.UserName, mqttConfig.Password)
-			return nil
-		},
-	}
-}
-
-type MqttPubCli struct {
-	httpCli *http.Client
-}
-
-var cli *MqttPubCli = nil
-var once = sync.Once{}
-var mqttConfig *MqttConfig = nil
-
-func GetCli() *MqttPubCli {
-	once.Do(func() {
-		err := std.ValidateStruct(mqttConfig)
-		std.AssertError(err, "Mqtt配置不正确")
-		logger.Println("mqtt init ...")
-		cli = &MqttPubCli{
-			httpCli: newHttpClient(),
-		}
-	})
-	return cli
-}
-
-func sendJsonPost(url string, body string) (string, error) {
-	if mqttConfig.Debug {
-		logger.Printf("mqtt pub by http post %s :\n %s", url, body)
-	}
-	req, err := http.NewRequest("POST", url, strings.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	req.SetBasicAuth(mqttConfig.UserName, mqttConfig.Password)
-	req.Header.Set("Content-Type", ApplicationJson)
-	resp, err := GetCli().httpCli.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	b, readErr := ioutil.ReadAll(resp.Body)
-	if readErr != nil {
-		return "", readErr
-	}
-	return string(b), nil
-}
+const (
+	MqttDefaultTimeoutSec = 20
+	MqttDefaultRetainMsg  = true
+	MqttDefaultQos        = Lv2OnlyOnce
+	applicationJson       = "application/json"
+)
 
 type mqttPubReq struct {
 	Topic    string `json:"topic"`
@@ -137,7 +58,74 @@ type mqttPubRsp struct {
 	Message string `json:"message"`
 }
 
-func (cli *MqttPubCli) Publish(topic string, msg interface{}) error {
+func newHttpClient(timeoutSec int64) *http.Client {
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+		DisableKeepAlives: true,
+	}
+	return &http.Client{
+		Transport: transport,
+		Timeout:   time.Second * time.Duration(timeoutSec),
+	}
+}
+
+type MqttPubCli struct {
+	httpCli        *http.Client
+	MqttPubApiAddr string
+	Timeout        int64
+	Debug          bool
+	UserName       string
+	Password       string
+	ClientIdPrefix string
+}
+
+//noinspection ALL
+func NewMqttPubCli(mqttPubApiUrl, username, pass string, timeoutSec int64, debug bool) *MqttPubCli {
+	if timeoutSec <= 0 {
+		timeoutSec = MqttDefaultTimeoutSec
+	}
+	cli := &MqttPubCli{
+		httpCli:        newHttpClient(timeoutSec),
+		MqttPubApiAddr: mqttPubApiUrl,
+		Timeout:        timeoutSec,
+		Debug:          debug,
+	}
+	cli.httpCli.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		req.SetBasicAuth(username, pass)
+		return nil
+	}
+	return cli
+}
+
+func NewMqttPubCli1(mqttPubApiUrl, username, pass string) *MqttPubCli {
+	return NewMqttPubCli(mqttPubApiUrl, username, pass, MqttDefaultTimeoutSec, false)
+}
+
+func (this *MqttPubCli) postJson(body string) (string, error) {
+	if this.Debug {
+		logger.Printf("mqtt pub by http post %s :\n %s", this.MqttPubApiAddr, body)
+	}
+	req, err := http.NewRequest("POST", this.MqttPubApiAddr, strings.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.SetBasicAuth(this.UserName, this.Password)
+	req.Header.Set("Content-Type", applicationJson)
+	resp, err := this.httpCli.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	b, readErr := ioutil.ReadAll(resp.Body)
+	if readErr != nil {
+		return "", readErr
+	}
+	return string(b), nil
+}
+
+func (this *MqttPubCli) Publish(topic string, msg interface{}, qos Qos, retainMsg bool) error {
 	msgBs, err := json.Marshal(msg)
 	if err != nil {
 		return errors.New(fmt.Sprintf("marshal msg to json failed : %s", err))
@@ -145,15 +133,15 @@ func (cli *MqttPubCli) Publish(topic string, msg interface{}) error {
 	mqttPubReq := mqttPubReq{
 		Topic:    topic,
 		Payload:  string(msgBs),
-		Qos:      mqttConfig.Qos,
-		Retain:   mqttConfig.RetainMsg,
-		ClientId: fmt.Sprintf("%s%s", mqttConfig.ClientIdPrefix, std.GenRandomUUID()),
+		Qos:      qos,
+		Retain:   retainMsg,
+		ClientId: fmt.Sprintf("%s%s", this.ClientIdPrefix, std.GenRandomUUID()),
 	}
 	bs, err := json.Marshal(mqttPubReq)
 	if err != nil {
 		return errors.New(fmt.Sprintf("marshal mqtt publish req failed : %s", err))
 	}
-	ack, err := sendJsonPost(mqttConfig.MqttPubApiAddr, string(bs))
+	ack, err := this.postJson(string(bs))
 	if err != nil {
 		return err
 	}
@@ -167,17 +155,6 @@ func (cli *MqttPubCli) Publish(topic string, msg interface{}) error {
 	return nil
 }
 
-func mqttPubCliInit(pubApiAddr string) {
-	conf := MqttDefaultConfig
-	conf.MqttPubApiAddr = pubApiAddr
-	mqttPubCliInitWithConfig(conf)
-}
-
-func mqttPubCliInitWithConfig(conf *MqttConfig) {
-	MqttDefaultConfig = conf
-	GetCli()
-}
-
-func mqttPubCliCleanup() {
-	logger.Println("mqtt cleanup ...")
+func (this *MqttPubCli) Publish1(topic string, msg interface{}) error {
+	return this.Publish(topic, msg, MqttDefaultQos, MqttDefaultRetainMsg)
 }
