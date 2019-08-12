@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	kDefaultHttpPort   = 19378
-	kDefaultStaticRoot = "static"
+	DefaultHttpPort     = 8080
+	DefaultStaticRoot   = "static"
+	DefaultWebBodyLimit = 5
 )
 
 //noinspection ALL
@@ -23,13 +24,14 @@ type WebConfig struct {
 	Port          uint64 `json:"port" validate:"min=1025,max=65535"`
 	StaticRootDir string `json:"staticRootDir" validate:"required"`
 	Debug         bool   `json:"debug"`
-	BodyLimit     *int   `json:"bodyLimit"`
+	BodyLimit     int    `json:"bodyLimit"`
 }
 
 var WebDefaultConfig = &WebConfig{
-	Port:          kDefaultHttpPort,
-	StaticRootDir: kDefaultStaticRoot,
+	Port:          DefaultHttpPort,
+	StaticRootDir: DefaultStaticRoot,
 	Debug:         false,
+	BodyLimit:     DefaultWebBodyLimit,
 }
 
 type WebX struct {
@@ -84,6 +86,9 @@ func webInit() {
 
 func webInitWithConfig(conf *WebConfig) {
 	webConfig = conf
+	if webConfig.BodyLimit <= 0 {
+		webConfig.BodyLimit = DefaultWebBodyLimit
+	}
 	Web()
 }
 
