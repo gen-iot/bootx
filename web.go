@@ -21,10 +21,10 @@ const (
 )
 
 type WebConfig struct {
-	Port          uint64 `json:"port" validate:"min=1025,max=65535"`
-	StaticRootDir string `json:"staticRootDir" validate:"required"`
-	Debug         bool   `json:"debug"`
-	BodyLimit     int    `json:"bodyLimit"`
+	Port          uint64 `yaml:"port" json:"port" validate:"min=1025,max=65535"`
+	StaticRootDir string `yaml:"staticRootDir" json:"staticRootDir" validate:"required"`
+	Debug         bool   `yaml:"debug" json:"debug"`
+	BodyLimit     int    `yaml:"bodyLimit" json:"bodyLimit"`
 }
 
 var WebDefaultConfig = &WebConfig{

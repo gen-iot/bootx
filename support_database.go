@@ -11,11 +11,11 @@ import (
 )
 
 type DBConfig struct {
-	DatabaseType     string `json:"databaseType" validate:"oneof=mysql postgres sqlite3 mssql"`
-	ConnStr          string `json:"connStr" validate:"required"`
-	ShowSql          bool   `json:"showSql"`
-	MaxIdleConnCount int    `json:"maxIdleConn" validate:"min=0,max=1000"`
-	MaxOpenConnCount int    `json:"maxOpenConn" validate:"min=0,max=1000"`
+	DatabaseType     string `yaml:"databaseType" json:"databaseType" validate:"oneof=mysql postgres sqlite3 mssql"`
+	ConnStr          string `yaml:"connStr" json:"connStr" validate:"required"`
+	ShowSql          bool   `yaml:"showSql" json:"showSql"`
+	MaxIdleConnCount int    `yaml:"maxIdleConn" json:"maxIdleConn" validate:"min=0,max=1000"`
+	MaxOpenConnCount int    `yaml:"maxOpenConn" json:"maxOpenConn" validate:"min=0,max=1000"`
 }
 
 var DBDefaultConfig = DBConfig{

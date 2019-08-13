@@ -14,14 +14,14 @@ const (
 
 //Redis 配置
 type RedisConfig struct {
-	Host            string `json:"host" validate:"required"`
-	Port            int    `json:"port" validate:"required,min=1025,max=65535"`
-	Password        string `json:"password"`
-	MaxIdleCount    int    `json:"maxIdle" validate:"min=0,max=1000"`
-	MaxActiveCount  int    `json:"maxActive" validate:"min=0,max=1000"`
-	DialTimeoutSec  int64  `json:"dialTimeout" validate:"min=0,max=100"`
-	ReadTimeoutSec  int64  `json:"readTimeout" validate:"min=0,max=100"`
-	WriteTimeoutSec int64  `json:"writeTimeout" validate:"min=0,max=100"`
+	Host            string `yaml:"host" json:"host" validate:"required"`
+	Port            int    `yaml:"port" json:"port" validate:"required,min=1025,max=65535"`
+	Password        string `yaml:"password" json:"password"`
+	MaxIdleCount    int    `yaml:"maxIdle" json:"maxIdle" validate:"min=0,max=1000"`
+	MaxActiveCount  int    `yaml:"maxActive"  json:"maxActive" validate:"min=0,max=1000"`
+	DialTimeoutSec  int64  `yaml:"dialTimeout" json:"dialTimeout" validate:"min=0,max=100"`
+	ReadTimeoutSec  int64  `yaml:"readTimeout" json:"readTimeout" validate:"min=0,max=100"`
+	WriteTimeoutSec int64  `yaml:"writeTimeout" json:"writeTimeout" validate:"min=0,max=100"`
 }
 
 var RedisDefaultConfig = &RedisConfig{
