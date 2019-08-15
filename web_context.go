@@ -226,6 +226,8 @@ func checkInParam(t reflect.Type) (reflect.Type, uint32) {
 			handlerFlags = handlerFlags | handlerHasCtx
 		} else {
 			handlerFlags = handlerFlags | handlerHasReqData
+			in1 := t.In(0)
+			inParamType = in1
 		}
 	case 2:
 		// func foo(context,param1)
