@@ -21,7 +21,7 @@ const (
 )
 
 type WebConfig struct {
-	Port          uint64 `yaml:"port" json:"port" validate:"min=1025,max=65535"`
+	Port          uint64 `yaml:"port" json:"port" validate:"min=1,max=65535"`
 	StaticRootDir string `yaml:"staticRootDir" json:"staticRootDir" validate:"required"`
 	Debug         bool   `yaml:"debug" json:"debug"`
 	BodyLimit     int    `yaml:"bodyLimit" json:"bodyLimit"`
