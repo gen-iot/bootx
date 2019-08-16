@@ -5,6 +5,7 @@ import (
 	"github.com/gen-iot/std"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"strings"
 	"sync"
 )
 
@@ -21,17 +22,19 @@ const (
 )
 
 type WebConfig struct {
-	Port          uint64 `yaml:"port" json:"port" validate:"min=1,max=65535"`
-	StaticRootDir string `yaml:"staticRootDir" json:"staticRootDir" validate:"required"`
-	Debug         bool   `yaml:"debug" json:"debug"`
-	BodyLimit     int    `yaml:"bodyLimit" json:"bodyLimit"`
+	Port              uint64 `yaml:"port" json:"port" validate:"min=1,max=65535"`
+	StaticRootDir     string `yaml:"staticRootDir" json:"staticRootDir"`
+	DirectoryBrowsing bool   `yaml:"directoryBrowsing" json:"directoryBrowsing"`
+	Debug             bool   `yaml:"debug" json:"debug"`
+	BodyLimit         int    `yaml:"bodyLimit" json:"bodyLimit"`
 }
 
 var WebDefaultConfig = &WebConfig{
-	Port:          DefaultHttpPort,
-	StaticRootDir: DefaultStaticRoot,
-	Debug:         false,
-	BodyLimit:     DefaultWebBodyLimit,
+	Port:              DefaultHttpPort,
+	StaticRootDir:     DefaultStaticRoot,
+	DirectoryBrowsing: false,
+	Debug:             false,
+	BodyLimit:         DefaultWebBodyLimit,
 }
 
 type WebX struct {
@@ -54,8 +57,18 @@ func newWeb() *WebX {
 	//启用gzip
 	web.Use(middleware.Gzip())
 	//限制body大小
-	web.Use(middleware.BodyLimit(fmt.Sprintf("%dM", webConfig.BodyLimit)))
-	web.Use(middleware.Static(webConfig.StaticRootDir))
+	if webConfig.BodyLimit > 0 {
+		web.Use(middleware.BodyLimit(fmt.Sprintf("%dM", webConfig.BodyLimit)))
+	}
+	//static
+	if len(strings.Trim(webConfig.StaticRootDir, " ")) > 0 {
+		web.Use(middleware.StaticWithConfig(
+			middleware.StaticConfig{
+				Root:   webConfig.StaticRootDir,
+				Browse: webConfig.DirectoryBrowsing,
+			},
+		))
+	}
 	web.Validator = NewWebValidator()
 	web.Binder = NewCustomBinder()
 	web.HideBanner = true
