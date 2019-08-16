@@ -17,7 +17,7 @@ type Context interface {
 	SetReq(in interface{})
 	Req() interface{}
 
-	SetResponse(out interface{})
+	SetResp(out interface{})
 	Resp() interface{}
 
 	SetHttpStatusCode(code int)
@@ -63,7 +63,7 @@ func (c *context) Req() interface{} {
 	return c.in
 }
 
-func (c *context) SetResponse(out interface{}) {
+func (c *context) SetResp(out interface{}) {
 	c.out = out
 }
 
@@ -197,7 +197,7 @@ func buildInvoke(handlerV reflect.Value, flags uint32) HandlerFunc {
 		}
 		if rspDataIdx != -1 {
 			rsp := outs[rspDataIdx].Interface()
-			ctx.SetResponse(rsp)
+			ctx.SetResp(rsp)
 		}
 	}
 }

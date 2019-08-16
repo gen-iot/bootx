@@ -12,7 +12,7 @@ import (
 
 const (
 	DefaultHttpPort     = 8080
-	DefaultStaticRoot   = "static"
+	DefaultStaticRoot   = ""
 	DefaultWebBodyLimit = 5
 )
 

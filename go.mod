@@ -8,7 +8,7 @@ require (
 	github.com/go-redis/redis v6.15.3+incompatible
 	github.com/jinzhu/gorm v1.9.10
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/labstack/echo/v4 v4.1.8
+	github.com/labstack/echo/v4 v4.1.9
 	github.com/pkg/errors v0.8.1
 	google.golang.org/appengine v1.6.1 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
