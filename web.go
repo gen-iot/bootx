@@ -5,6 +5,7 @@ import (
 	"github.com/gen-iot/std"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"os"
 	"strings"
 	"sync"
 )
@@ -23,6 +24,7 @@ const (
 
 type WebConfig struct {
 	Port              uint64 `yaml:"port" json:"port" validate:"min=1,max=65535"`
+	StaticPathPrefix  string `yaml:"staticPathPrefix" json:"staticPathPrefix"`
 	StaticRootDir     string `yaml:"staticRootDir" json:"staticRootDir"`
 	DirectoryBrowsing bool   `yaml:"directoryBrowsing" json:"directoryBrowsing"`
 	Debug             bool   `yaml:"debug" json:"debug"`
@@ -61,13 +63,22 @@ func newWeb() *WebX {
 		web.Use(middleware.BodyLimit(fmt.Sprintf("%dM", webConfig.BodyLimit)))
 	}
 	//static
-	if len(strings.Trim(webConfig.StaticRootDir, " ")) > 0 {
-		web.Use(middleware.StaticWithConfig(
-			middleware.StaticConfig{
-				Root:   webConfig.StaticRootDir,
-				Browse: webConfig.DirectoryBrowsing,
-			},
-		))
+	webConfig.StaticRootDir = strings.Trim(webConfig.StaticRootDir, " ")
+	webConfig.StaticPathPrefix = strings.Trim(webConfig.StaticPathPrefix, " ")
+	if webConfig.StaticRootDir != "" {
+		err := os.MkdirAll(webConfig.StaticRootDir, os.ModePerm)
+		std.AssertError(err, "create web static dir failed")
+		staticConfig := middleware.StaticConfig{
+			Root:   webConfig.StaticRootDir,
+			HTML5:  true,
+			Browse: webConfig.DirectoryBrowsing,
+		}
+		if webConfig.StaticPathPrefix != "" {
+			g := web.Group(webConfig.StaticPathPrefix)
+			g.Use(middleware.StaticWithConfig(staticConfig))
+		} else {
+			web.Use(middleware.StaticWithConfig(staticConfig))
+		}
 	}
 	web.Validator = NewWebValidator()
 	web.Binder = NewCustomBinder()
