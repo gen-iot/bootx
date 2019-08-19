@@ -166,7 +166,7 @@ func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc
 		}
 		fn := mid.buildChain(buildInvoke(hv, flags))
 		fn(ctx)
-		return ctx.Err()
+		return ctx.End()
 	})
 }
 
