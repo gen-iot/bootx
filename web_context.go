@@ -157,16 +157,17 @@ func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc
 			if err = ctx.BindAndValidate(req); err != nil {
 				ctx.SetHttpStatusCode(http.StatusBadRequest)
 				ctx.SetError(echo.NewHTTPError(http.StatusBadRequest, err.Error()))
-				return ctx.End()
+				goto call
 			}
 			if !isPtr {
 				req = reflect.ValueOf(req).Elem().Interface()
 			}
 			ctx.SetReq(req)
 		}
+	call:
 		fn := mid.buildChain(buildInvoke(hv, flags))
 		fn(ctx)
-		return ctx.End()
+		return ctx.Err()
 	})
 }
 

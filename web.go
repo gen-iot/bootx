@@ -50,14 +50,14 @@ func newWeb() *WebX {
 	web.Use(middleware.Recover())
 	web.Use(middleware.RequestID())
 	web.Use(CustomContextMiddleware)
-	if webConfig.Debug {
-		web.Use(Dump())
-		web.Use(middleware.Logger())
-	}
 	//允许跨域
 	web.Use(middleware.CORS())
 	//启用gzip
 	web.Use(middleware.Gzip())
+	if webConfig.Debug {
+		web.Use(Dump())
+		web.Use(middleware.Logger())
+	}
 	//限制body大小
 	if webConfig.BodyLimit > 0 {
 		web.Use(middleware.BodyLimit(fmt.Sprintf("%dM", webConfig.BodyLimit)))
