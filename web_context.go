@@ -31,63 +31,77 @@ type Context interface {
 	End() error
 }
 
-type context struct {
+type contextImpl struct {
 	echo.Context
-	AuthData     interface{}
-	in           interface{}
-	out          interface{}
-	code         int
-	err          error
-	message      string
-	handlerFlags uint32
-	handlerValue reflect.Value
+	AuthData interface{}
+	in       interface{}
+	out      interface{}
+	code     int
+	err      error
+	message  string
 }
 
-func (c *context) SetUserAuthData(data interface{}) {
+func (c *contextImpl) reset() {
+	c.Context = nil
+	c.AuthData = nil
+	c.in = nil
+	c.out = nil
+	c.code = http.StatusOK
+	c.err = nil
+	c.message = ""
+}
+
+func (c *contextImpl) init(echoCtx echo.Context) {
+	c.Context = echoCtx
+	c.AuthData = nil
+	c.code = http.StatusOK
+}
+
+func (c *contextImpl) SetUserAuthData(data interface{}) {
 	c.AuthData = data
 }
 
-func (c *context) UserAuthData() interface{} {
+func (c *contextImpl) UserAuthData() interface{} {
 	return c.AuthData
 }
 
-func (c *context) Id() string {
+func (c *contextImpl) Id() string {
 	return c.Request().Header.Get(echo.HeaderXRequestID)
 }
 
-func (c *context) SetReq(in interface{}) {
+func (c *contextImpl) SetReq(in interface{}) {
 	c.in = in
 }
 
-func (c *context) Req() interface{} {
+func (c *contextImpl) Req() interface{} {
 	return c.in
 }
 
-func (c *context) SetResp(out interface{}) {
+func (c *contextImpl) SetResp(out interface{}) {
 	c.out = out
 }
 
-func (c *context) Resp() interface{} {
+func (c *contextImpl) Resp() interface{} {
 	return c.out
 }
 
-func (c *context) SetHttpStatusCode(code int) {
+func (c *contextImpl) SetHttpStatusCode(code int) {
 	c.code = code
 }
 
-func (c *context) HttpStatusCode() int {
+func (c *contextImpl) HttpStatusCode() int {
 	return c.code
 }
 
-func (c *context) SetError(err error) {
+func (c *contextImpl) SetError(err error) {
 	c.err = err
 }
 
-func (c *context) Err() error {
+func (c *contextImpl) Err() error {
 	return c.err
 }
 
-func (c *context) BindAndValidate(in interface{}) error {
+func (c *contextImpl) BindAndValidate(in interface{}) error {
 	err := c.Bind(in)
 	if err != nil {
 		return err
@@ -100,7 +114,7 @@ func (c *context) BindAndValidate(in interface{}) error {
 	return nil
 }
 
-func (c *context) End() error {
+func (c *contextImpl) End() error {
 	err := c.Err()
 	if err != nil {
 		return err
@@ -108,13 +122,14 @@ func (c *context) End() error {
 	return c.JSONPretty(c.code, c.Resp(), jsonIndent)
 }
 
-func CustomContextMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+func (web *WebX) customContextMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(echoCtx echo.Context) error {
-		ctx := &context{
-			Context:  echoCtx,
-			AuthData: nil,
-			code:     http.StatusOK,
-		}
+		ctx := web.grabCtx()
+		defer func() {
+			ctx.reset()
+			web.releaseCtx(ctx)
+		}()
+		ctx.init(echoCtx)
 		return next(ctx)
 	}
 }
@@ -222,7 +237,7 @@ func checkInParam(t reflect.Type) (reflect.Type, uint32) {
 	case 0:
 		//func()
 	case 1:
-		// func foo(context)
+		// func foo(Context)
 		if t.In(0) == typeOfContext {
 			handlerFlags = handlerFlags | handlerHasCtx
 		} else {
@@ -231,7 +246,7 @@ func checkInParam(t reflect.Type) (reflect.Type, uint32) {
 			inParamType = in1
 		}
 	case 2:
-		// func foo(context,param1)
+		// func foo(Context,param1)
 		in0 := t.In(0)
 		std.Assert(in0 == typeOfContext, "first in param must be Context")
 		in1 := t.In(1)

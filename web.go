@@ -41,15 +41,31 @@ var WebDefaultConfig = &WebConfig{
 
 type WebX struct {
 	*echo.Echo
+	ctxPool *sync.Pool
+}
+
+func (this *WebX) grabCtx() *contextImpl {
+	ctxImpl := this.ctxPool.Get().(*contextImpl)
+	return ctxImpl
+}
+
+func (this *WebX) releaseCtx(ctx *contextImpl) {
+	std.Assert(ctx != nil, "return ctx is nil")
+	this.ctxPool.Put(ctx)
 }
 
 func newWeb() *WebX {
 	web := &WebX{
 		echo.New(),
+		&sync.Pool{
+			New: func() interface{} {
+				return new(contextImpl)
+			},
+		},
 	}
 	web.Use(middleware.Recover())
 	web.Use(middleware.RequestID())
-	web.Use(CustomContextMiddleware)
+	web.Use(web.customContextMiddleware)
 	//允许跨域
 	web.Use(middleware.CORS())
 	//启用gzip
