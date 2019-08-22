@@ -32,26 +32,33 @@ type DataBase struct {
 
 var dbOnce = sync.Once{}
 var gDb *DataBase = nil
-var dbConfig *DBConfig = nil
+
+func NewDB(dbType string, connStr string) *DataBase {
+	c := DBDefaultConfig
+	c.DatabaseType = dbType
+	c.ConnStr = connStr
+	return NewDBWithConf(c)
+}
+
+func NewDBWithConf(conf DBConfig) *DataBase {
+	err := std.ValidateStruct(conf)
+	std.AssertError(err, "数据库配置不正确")
+	logger.Printf("database db(%s) init ...", conf.ConnStr)
+	db, err := gorm.Open(conf.DatabaseType, conf.ConnStr)
+	std.AssertError(err, "database open failed")
+	if conf.ShowSql {
+		//use gorm default logger
+		//gDb.SetLogger(log.DEBUG)
+		db.LogMode(true)
+	}
+	//dbConfig connection pool
+	db.DB().SetMaxIdleConns(conf.MaxIdleConnCount)
+	db.DB().SetMaxOpenConns(conf.MaxOpenConnCount)
+	return &DataBase{db}
+}
 
 func DB() *DataBase {
-	std.Assert(dbConfig != nil, "database not config yet")
-	dbOnce.Do(func() {
-		err := std.ValidateStruct(dbConfig)
-		std.AssertError(err, "数据库配置不正确")
-		logger.Printf("database db(%s) init ...", dbConfig.ConnStr)
-		db, err := gorm.Open(dbConfig.DatabaseType, dbConfig.ConnStr)
-		std.AssertError(err, "database open failed")
-		if dbConfig.ShowSql {
-			//use gorm default logger
-			//gDb.SetLogger(log.DEBUG)
-			db.LogMode(true)
-		}
-		//dbConfig connection pool
-		db.DB().SetMaxIdleConns(dbConfig.MaxIdleConnCount)
-		db.DB().SetMaxOpenConns(dbConfig.MaxOpenConnCount)
-		gDb = &DataBase{db}
-	})
+	std.Assert(gDb != nil, "database not init yet")
 	return gDb
 }
 
@@ -68,18 +75,16 @@ func (this *DataBase) Tx(txFunc func(*gorm.DB) error) (err error) {
 }
 
 func dbInit(dbType string, connStr string) {
-	dbInitWithConfig(&DBConfig{
-		DatabaseType:     dbType,
-		ConnStr:          connStr,
-		ShowSql:          DBDefaultConfig.ShowSql,
-		MaxIdleConnCount: DBDefaultConfig.MaxIdleConnCount,
-		MaxOpenConnCount: DBDefaultConfig.MaxOpenConnCount,
-	})
+	c := DBDefaultConfig
+	c.DatabaseType = dbType
+	c.ConnStr = connStr
+	dbInitWithConfig(c)
 }
 
-func dbInitWithConfig(conf *DBConfig) {
-	dbConfig = conf
-	DB()
+func dbInitWithConfig(conf DBConfig) {
+	dbOnce.Do(func() {
+		gDb = NewDBWithConf(conf)
+	})
 }
 
 func dbCleanup() {

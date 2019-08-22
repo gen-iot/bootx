@@ -24,7 +24,7 @@ type RedisConfig struct {
 	WriteTimeoutSec int64  `yaml:"writeTimeout" json:"writeTimeout" validate:"min=0,max=100"`
 }
 
-var RedisDefaultConfig = &RedisConfig{
+var RedisDefaultConfig = RedisConfig{
 	Host:            "localhost",
 	Port:            6379,
 	Password:        "",
@@ -39,46 +39,48 @@ type RedisClient struct {
 	*redis.Client
 }
 
-var client *RedisClient = nil
+var gRedisCli *RedisClient = nil
 var redisOnce = sync.Once{}
-var redisConfig = RedisDefaultConfig
+
+func NewRedisCli(host string, pass string) *RedisClient {
+	c := RedisDefaultConfig
+	c.Host = host
+	c.Password = pass
+	return NewRedisCliWithConf(c)
+}
+
+func NewRedisCliWithConf(conf RedisConfig) *RedisClient {
+	err := std.ValidateStruct(conf)
+	std.AssertError(err, "Redis配置不正确")
+	logger.Printf("redis init ...")
+	redisAddr := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
+	option := &redis.Options{
+		Addr:         redisAddr,
+		Password:     conf.Password,
+		DB:           0,
+		DialTimeout:  time.Duration(conf.DialTimeoutSec) * time.Second,
+		ReadTimeout:  time.Duration(conf.ReadTimeoutSec) * time.Second,
+		WriteTimeout: time.Duration(conf.WriteTimeoutSec) * time.Second,
+	}
+	return &RedisClient{Client: redis.NewClient(option)}
+}
 
 func RedisCli() *RedisClient {
-	std.Assert(redisConfig != nil, "redis not config yet")
-	redisOnce.Do(func() {
-		err := std.ValidateStruct(redisConfig)
-		std.AssertError(err, "Redis配置不正确")
-		logger.Printf("redis init ...")
-		redisAddr := fmt.Sprintf("%s:%d", redisConfig.Host, redisConfig.Port)
-		option := &redis.Options{
-			Addr:         redisAddr,
-			Password:     redisConfig.Password,
-			DB:           0,
-			DialTimeout:  time.Duration(redisConfig.DialTimeoutSec) * time.Second,
-			ReadTimeout:  time.Duration(redisConfig.ReadTimeoutSec) * time.Second,
-			WriteTimeout: time.Duration(redisConfig.WriteTimeoutSec) * time.Second,
-		}
-		client = &RedisClient{
-			Client: redis.NewClient(option)}
-	})
-	return client
+	std.Assert(gRedisCli != nil, "redis not init yet")
+	return gRedisCli
 }
 
 func redisInit(host string, pass string) {
-	redisInitWithConfig(&RedisConfig{
-		Host:            host,
-		Port:            RedisDefaultConfig.Port,
-		Password:        pass,
-		MaxIdleCount:    RedisDefaultConfig.MaxIdleCount,
-		MaxActiveCount:  RedisDefaultConfig.MaxActiveCount,
-		DialTimeoutSec:  RedisDefaultConfig.DialTimeoutSec,
-		ReadTimeoutSec:  RedisDefaultConfig.ReadTimeoutSec,
-		WriteTimeoutSec: RedisDefaultConfig.WriteTimeoutSec,
-	})
+	c := RedisDefaultConfig
+	c.Host = host
+	c.Password = pass
+	redisInitWithConfig(c)
 }
-func redisInitWithConfig(conf *RedisConfig) {
-	redisConfig = conf
-	RedisCli()
+
+func redisInitWithConfig(conf RedisConfig) {
+	redisOnce.Do(func() {
+		gRedisCli = NewRedisCliWithConf(conf)
+	})
 }
 
 func redisCleanup() {
