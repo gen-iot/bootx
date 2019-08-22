@@ -14,7 +14,7 @@ func Bootstrap(app Application, configs ...interface{}) {
 	initKernel()
 	defer cleanupKernel()
 	webConf, dbConf, redisConf := initModules(configs...)
-	//if no web config ,use default config
+	//if no gWebX config ,use default config
 	if !webConf {
 		webInit()
 	}
@@ -26,7 +26,7 @@ func Bootstrap(app Application, configs ...interface{}) {
 	}
 	app.Bootstrap()
 	defer app.Shutdown()
-	//start web service
+	//start gWebX service
 	Web().start()
 	defer Web().stop()
 	getKernel().waitForExit()
@@ -36,23 +36,20 @@ func initModules(configs ...interface{}) (webConf, dbConf, redisConf bool) {
 	for _, conf := range configs {
 		switch c := conf.(type) {
 		case WebConfig:
-			webInitWithConfig(&c)
-		case *WebConfig:
 			webInitWithConfig(c)
+		case *WebConfig:
+			webInitWithConfig(*c)
 			webConf = true
-			break
 		case DBConfig:
-			dbInitWithConfig(&c)
-		case *DBConfig:
 			dbInitWithConfig(c)
+		case *DBConfig:
+			dbInitWithConfig(*c)
 			dbConf = true
-			break
 		case RedisConfig:
-			redisInitWithConfig(&c)
-		case *RedisConfig:
 			redisInitWithConfig(c)
+		case *RedisConfig:
+			redisInitWithConfig(*c)
 			redisConf = true
-			break
 		}
 	}
 	return

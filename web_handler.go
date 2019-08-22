@@ -8,7 +8,7 @@ import (
 )
 
 //统一异常处理
-func defaultErrorHandler(err error, ctx echo.Context) {
+func (this *WebX) defaultErrorHandler(err error, ctx echo.Context) {
 	switch cause := errors.Cause(err).(type) {
 	case *echo.HTTPError:
 		{
@@ -27,7 +27,7 @@ func defaultErrorHandler(err error, ctx echo.Context) {
 		{
 			logger.Printf("unexpect error :%v", err)
 			msg := "unexpect error "
-			if webConfig.Debug {
+			if this.conf.Debug {
 				msg = fmt.Sprintf("%v", err)
 			}
 			//500

@@ -122,12 +122,12 @@ func (c *contextImpl) End() error {
 	return c.JSONPretty(c.code, c.Resp(), jsonIndent)
 }
 
-func (web *WebX) customContextMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+func (this *WebX) customContextMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(echoCtx echo.Context) error {
-		ctx := web.grabCtx()
+		ctx := this.grabCtx()
 		defer func() {
 			ctx.reset()
-			web.releaseCtx(ctx)
+			this.releaseCtx(ctx)
 		}()
 		ctx.init(echoCtx)
 		return next(ctx)
