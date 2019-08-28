@@ -181,7 +181,7 @@ func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc
 		fn := mid.buildChain(buildInvoke(fv, flags))
 		fn(ctx)
 		//if has rsp & no error need write response,otherwise err handler will handle
-		if !ctx.Response().Committed && ctx.Resp() != nil && ctx.Err() != nil {
+		if !ctx.Response().Committed && ctx.Resp() != nil && ctx.Err() == nil {
 			return ctx.JSONPretty(ctx.HttpStatusCode(), ctx.Resp(), jsonIndent)
 		}
 		return ctx.Err()
