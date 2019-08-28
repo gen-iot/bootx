@@ -52,7 +52,7 @@ func NewRedisCli(host string, pass string) *RedisClient {
 func NewRedisCliWithConf(conf RedisConfig) *RedisClient {
 	err := std.ValidateStruct(conf)
 	std.AssertError(err, "Redis配置不正确")
-	logger.Printf("redis init ...")
+	logger.Println("redis init ...")
 	redisAddr := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
 	option := &redis.Options{
 		Addr:         redisAddr,
@@ -84,7 +84,7 @@ func redisInitWithConfig(conf RedisConfig) {
 }
 
 func redisCleanup() {
-	logger.Println("%redis cleanup ...")
+	logger.Println("redis cleanup ...")
 	err := RedisCli().Close()
 	if err != nil {
 		logger.Printf("error occurred while redis close : %s ...", err)

@@ -26,7 +26,7 @@ var DefaultJwtConfig = middleware.JWTConfig{
 	TokenLookup: "header:" + echo.HeaderAuthorization,
 	AuthScheme:  "Bearer",
 	ErrorHandler: func(e error) error {
-		logger.Println(logTag, "jwt auth error :", e)
+		logger.Println("jwt auth error :", e)
 		if e == middleware.ErrJWTMissing {
 			return missTokenError
 		}

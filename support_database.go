@@ -90,6 +90,6 @@ func dbInitWithConfig(conf DBConfig) {
 func dbCleanup() {
 	logger.Println("database cleanup ...")
 	if err := gDb.Close(); err != nil {
-		logger.Printf("%s error occurred while database close : %s ...", logTag, err)
+		logger.Printf("error occurred while database close : %s ...", err)
 	}
 }

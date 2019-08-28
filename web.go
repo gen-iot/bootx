@@ -147,13 +147,13 @@ func (this *WebX) start() {
 	go func() {
 		addr := fmt.Sprintf(":%d", this.conf.Port)
 		if err := this.Start(addr); err != nil {
-			logger.Println("gWebX got error when shutting down : ", err)
+			logger.Println("Web got error when shutting down : ", err)
 		}
 	}()
 }
 
 func (this *WebX) stop() {
 	if err := this.Close(); err != nil {
-		logger.Println(logTag, " got error when shutting down: ", err)
+		logger.Println(" got error when shutting down: ", err)
 	}
 }

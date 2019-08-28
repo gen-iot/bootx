@@ -1,10 +1,13 @@
 package bootx
 
 import (
+	"fmt"
 	"github.com/gen-iot/std"
 	"github.com/labstack/echo/v4"
 	"net/http"
 	"reflect"
+	"runtime"
+	"strings"
 )
 
 type Context interface {
@@ -146,15 +149,15 @@ func ConvertFromEchoCtx(h func(Context) (err error)) echo.HandlerFunc {
 
 //noinspection ALL
 func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc {
-	hv, ok := handler.(reflect.Value)
+	fv, ok := handler.(reflect.Value)
 	if !ok {
-		hv = reflect.ValueOf(handler)
+		fv = reflect.ValueOf(handler)
 	}
-	std.Assert(hv.Kind() == reflect.Func, "handler not func!")
-	hvType := hv.Type()
-	hvType.NumIn()
-	inType, inFlags := checkInParam(hvType)
-	_, outFlags := checkOutParam(hvType)
+	std.Assert(fv.Kind() == reflect.Func, "handler not func!")
+	ft := fv.Type()
+	fName := getFuncName(fv)
+	inType, inFlags := checkInParam(fName, ft)
+	_, outFlags := checkOutParam(fName, ft)
 	flags := inFlags | outFlags
 	mid := middlewares{}
 	mid.Use(m...)
@@ -180,7 +183,7 @@ func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc
 			ctx.SetReq(req)
 		}
 	call:
-		fn := mid.buildChain(buildInvoke(hv, flags))
+		fn := mid.buildChain(buildInvoke(fv, flags))
 		fn(ctx)
 		return ctx.Err()
 	})
@@ -227,11 +230,12 @@ const (
 var typeOfError = reflect.TypeOf((*error)(nil)).Elem()
 var typeOfContext = reflect.TypeOf((*Context)(nil)).Elem()
 
-func checkInParam(t reflect.Type) (reflect.Type, uint32) {
+func checkInParam(name string, t reflect.Type) (reflect.Type, uint32) {
 	var handlerFlags uint32 = 0
 	var inParamType reflect.Type = nil
 	inNum := t.NumIn()
-	std.Assert(inNum >= 0 && inNum <= 2, "inNum len must be 0() or 1(req any) or 2(ctx Context,req Any)")
+	std.Assert(inNum >= 0 && inNum <= 2,
+		fmt.Sprintf("'%s' not valid : inNum len must be 0() or 1(req any) or 2(ctx Context,req Any)", name))
 	//
 	switch inNum {
 	case 0:
@@ -248,23 +252,26 @@ func checkInParam(t reflect.Type) (reflect.Type, uint32) {
 	case 2:
 		// func foo(Context,param1)
 		in0 := t.In(0)
-		std.Assert(in0 == typeOfContext, "first in param must be Context")
+		std.Assert(in0 == typeOfContext,
+			fmt.Sprintf("'%s' not valid :first in param must be Context", name))
 		in1 := t.In(1)
 		inParamType = in1
 		handlerFlags = handlerFlags | handlerHasCtx | handlerHasReqData
 	default:
-		std.Assert(false, "illegal func in params num")
+		std.Assert(false, fmt.Sprintf("'%s' not valid :illegal func in params num", name))
 	}
 	return inParamType, handlerFlags
 }
 
-func checkOutParam(t reflect.Type) (reflect.Type, uint32) {
+func checkOutParam(name string, t reflect.Type) (reflect.Type, uint32) {
 	var handlerFlags uint32 = 0
 	var outParamType reflect.Type = nil
 	outNum := t.NumOut()
-	std.Assert(outNum > 0 && outNum <= 2, "outNum len must be 1(error) or 2(any,error)")
+	std.Assert(outNum > 0 && outNum <= 2,
+		fmt.Sprintf("'%s' not valid :outNum len must be 1(error) or 2(any,error)", name))
 	lastOut := t.Out(outNum - 1)
-	std.Assert(lastOut == typeOfError, "the last out param must be 'error'")
+	std.Assert(lastOut == typeOfError,
+		fmt.Sprintf("'%s' not valid :the last out param must be 'error'", name))
 	switch outNum {
 	case 1:
 		//fun(xxx)error
@@ -272,7 +279,20 @@ func checkOutParam(t reflect.Type) (reflect.Type, uint32) {
 		outParamType = t.Out(0)
 		handlerFlags = handlerFlags | handlerHasRsp
 	default:
-		std.Assert(false, "illegal func return params num")
+		std.Assert(false, fmt.Sprintf("'%s' not valid :illegal func return params num", name))
 	}
 	return outParamType, handlerFlags
+}
+
+func getFuncName(fv reflect.Value) string {
+	fname := runtime.FuncForPC(reflect.Indirect(fv).Pointer()).Name()
+	idx := strings.LastIndex(fname, ".")
+	if idx != -1 {
+		fname = fname[idx+1:]
+	}
+	idx = strings.LastIndex(fname, "-")
+	if idx != -1 {
+		fname = fname[:idx]
+	}
+	return fname
 }

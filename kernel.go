@@ -1,7 +1,6 @@
 package bootx
 
 import (
-	"fmt"
 	"github.com/gen-iot/std"
 	"os"
 	"os/signal"
@@ -37,13 +36,13 @@ func getKernel() *kernel {
 }
 
 func (this *kernel) kill() {
-	fmt.Println(logTag, "shutdown ...")
+	logger.Println("shutdown ...")
 	close(this.choseSignalChan)
 }
 
 //block event
 func (this *kernel) waitForExit() {
-	fmt.Println(logTag, "running ...")
+	logger.Println("running ...")
 	this.handleKillSignal()
 	<-this.choseSignalChan
 }
@@ -56,10 +55,10 @@ func (this *kernel) handleKillSignal() {
 		for s := range c {
 			switch s {
 			case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGKILL:
-				fmt.Println(logTag, "receive signal", s)
+				logger.Println("receive signal", s)
 				this.kill()
 			default:
-				fmt.Println(logTag, "receive signal", s)
+				logger.Println("receive signal", s)
 			}
 		}
 	}()
@@ -77,5 +76,5 @@ func initGolang() {
 }
 
 func cleanupKernel() {
-	logger.Println(" exited !")
+	logger.Println("exited !")
 }
