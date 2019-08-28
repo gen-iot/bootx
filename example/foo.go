@@ -15,10 +15,20 @@ func (f FooApp) GetVersion() string {
 	return "1.0.0"
 }
 
+type FooResponse struct {
+	Msg string `json:"msg"`
+}
+
 func (f FooApp) Bootstrap() {
+	bootx.Web().Use(bootx.BodyDump(bootx.DefaultBodyDumpHandler))
 	bootx.Web().GET("", bootx.BuildHttpHandler(func(ctx bootx.Context) error {
 		return ctx.String(200, "hello word")
 	}))
+	bootx.Web().GET("/foo/bar",
+		bootx.BuildHttpHandler(
+			func() (*FooResponse, error) {
+				return &FooResponse{Msg: "hello word"}, nil
+			}))
 }
 
 func (f FooApp) Shutdown() {
@@ -27,7 +37,11 @@ func (f FooApp) Shutdown() {
 
 func main() {
 	//only start web (default listen at 8080)
-	bootx.Bootstrap(&FooApp{})
+	bootx.Bootstrap(&FooApp{},
+		bootx.WebConfig{
+			Port:  8080,
+			Debug: true,
+		})
 	//only start web ,use custom config
 	/*
 		bootx.Bootstrap(&FooApp{}, bootx.WebConfig{

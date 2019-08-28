@@ -8,20 +8,16 @@ import (
 )
 
 //统一异常处理
-func (this *WebX) defaultErrorHandler(err error, ctx echo.Context) {
+func (this *WebX) defaultErrorHandler(err error, ctx Context) {
+	code := 500
+	rsp := make(map[string]interface{})
 	switch cause := errors.Cause(err).(type) {
 	case *echo.HTTPError:
 		{
-			//http error
 			msg := fmt.Sprintf("%v", cause.Message)
-			e := ctx.JSONPretty(cause.Code,
-				map[string]interface{}{
-					"code":    cause.Code,
-					"message": msg,
-				}, jsonIndent)
-			if e != nil {
-				logger.Printf("error while response :%v", err)
-			}
+			code = cause.Code
+			rsp["code"] = cause.Code
+			rsp["message"] = msg
 		}
 	default:
 		{
@@ -30,15 +26,20 @@ func (this *WebX) defaultErrorHandler(err error, ctx echo.Context) {
 			if this.conf.Debug {
 				msg = fmt.Sprintf("%v", err)
 			}
-			//500
-			e := ctx.JSONPretty(http.StatusOK,
-				map[string]interface{}{
-					"code":    -1,
-					"message": msg,
-				}, jsonIndent)
-			if e != nil {
-				logger.Printf("error while response :%v", err)
-			}
+			code = http.StatusInternalServerError
+			rsp["code"] = code
+			rsp["message"] = msg
+		}
+	}
+	// Send response
+	if !ctx.Response().Committed {
+		if ctx.Request().Method == http.MethodHead {
+			err = ctx.NoContent(code)
+		} else {
+			err = ctx.JSONPretty(code, rsp, jsonIndent)
+		}
+		if err != nil {
+			logger.Println(err)
 		}
 	}
 }

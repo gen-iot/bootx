@@ -23,14 +23,18 @@ const (
 	jsonIndentPrefix = ""
 )
 
-type WebConfig struct {
-	Port              int    `yaml:"port" json:"port" validate:"min=1,max=65535"`
-	StaticPathPrefix  string `yaml:"staticPathPrefix" json:"staticPathPrefix"`
-	StaticRootDir     string `yaml:"staticRootDir" json:"staticRootDir"`
-	DirectoryBrowsing bool   `yaml:"directoryBrowsing" json:"directoryBrowsing"`
-	Debug             bool   `yaml:"debug" json:"debug"`
-	BodyLimit         int    `yaml:"bodyLimit" json:"bodyLimit"`
-}
+type (
+	WebConfig struct {
+		Port              int          `yaml:"port" json:"port" validate:"min=1,max=65535"`
+		StaticPathPrefix  string       `yaml:"staticPathPrefix" json:"staticPathPrefix"`
+		StaticRootDir     string       `yaml:"staticRootDir" json:"staticRootDir"`
+		DirectoryBrowsing bool         `yaml:"directoryBrowsing" json:"directoryBrowsing"`
+		Debug             bool         `yaml:"debug" json:"debug"`
+		BodyLimit         int          `yaml:"bodyLimit" json:"bodyLimit"`
+		ErrHandler        ErrorHandler `json:"-" yaml:"-"`
+	}
+	ErrorHandler func(error, Context)
+)
 
 var WebDefaultConfig = WebConfig{
 	Port:              DefaultHttpPort,
@@ -85,8 +89,8 @@ func NewWebWithConf(conf WebConfig) *WebX {
 	//启用gzip
 	web.Use(middleware.Gzip())
 	if conf.Debug {
-		web.Use(Dump())
-		web.Use(middleware.Logger())
+		web.Debug = true
+		//web.Use(middleware.Logger())
 	}
 	//限制body大小
 	if conf.BodyLimit > 0 {
@@ -97,7 +101,7 @@ func NewWebWithConf(conf WebConfig) *WebX {
 	conf.StaticPathPrefix = strings.Trim(conf.StaticPathPrefix, " ")
 	if conf.StaticRootDir != "" {
 		err := os.MkdirAll(conf.StaticRootDir, os.ModePerm)
-		std.AssertError(err, "create gWebX static dir failed")
+		std.AssertError(err, "create web static dir failed")
 		staticConfig := middleware.StaticConfig{
 			Root:   conf.StaticRootDir,
 			HTML5:  true,
@@ -115,7 +119,18 @@ func NewWebWithConf(conf WebConfig) *WebX {
 	web.HideBanner = true
 	//gWebX.HidePort = true
 	//统一异常处理
-	web.HTTPErrorHandler = web.defaultErrorHandler
+	if conf.ErrHandler == nil {
+		conf.ErrHandler = web.defaultErrorHandler
+	}
+	web.HTTPErrorHandler = func(e error, echoCtx echo.Context) {
+		ctx := web.grabCtx()
+		defer func() {
+			ctx.reset()
+			web.releaseCtx(ctx)
+		}()
+		ctx.init(echoCtx)
+		conf.ErrHandler(e, ctx)
+	}
 	return web
 }
 
@@ -123,7 +138,7 @@ var webOnce = sync.Once{}
 var gWebX *WebX = nil
 
 func Web() *WebX {
-	std.Assert(gWebX != nil, "gWebX not init yet")
+	std.Assert(gWebX != nil, "web not init yet")
 	return gWebX
 }
 
@@ -138,7 +153,7 @@ func webInitWithConfig(conf WebConfig) {
 	webOnce.Do(func() {
 		err := std.ValidateStruct(conf)
 		std.AssertError(err, "web配置不正确")
-		logger.Printf("gWebX(port=%d,debug=%v) init  ...", conf.Port, conf.Debug)
+		logger.Printf("web(port=%d,debug=%v) init  ...", conf.Port, conf.Debug)
 		gWebX = NewWebWithConf(conf)
 	})
 }

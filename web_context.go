@@ -28,10 +28,6 @@ type Context interface {
 
 	SetError(err error)
 	Err() error
-
-	BindAndValidate(in interface{}) error
-
-	End() error
 }
 
 type contextImpl struct {
@@ -161,7 +157,7 @@ func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc
 	flags := inFlags | outFlags
 	mid := middlewares{}
 	mid.Use(m...)
-	return ConvertFromEchoCtx(func(ctx Context) (err error) {
+	return ConvertFromEchoCtx(func(ctx Context) error {
 		//has req data
 		if flags&handlerHasReqData == handlerHasReqData {
 			elementType := inType
@@ -171,20 +167,23 @@ func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc
 				isPtr = true
 			}
 			req := reflect.New(elementType).Interface()
-			//bind and validate
-			if err = ctx.BindAndValidate(req); err != nil {
+			//bind
+			err := ctx.Bind(req)
+			if err != nil {
 				ctx.SetHttpStatusCode(http.StatusBadRequest)
 				ctx.SetError(echo.NewHTTPError(http.StatusBadRequest, err.Error()))
-				goto call
 			}
 			if !isPtr {
 				req = reflect.ValueOf(req).Elem().Interface()
 			}
 			ctx.SetReq(req)
 		}
-	call:
 		fn := mid.buildChain(buildInvoke(fv, flags))
 		fn(ctx)
+		//if has rsp & no error need write response,otherwise err handler will handle
+		if !ctx.Response().Committed && flags&handlerHasRsp != 0 && ctx.Err() != nil {
+			return ctx.JSONPretty(ctx.HttpStatusCode(), ctx.Resp(), jsonIndent)
+		}
 		return ctx.Err()
 	})
 }
