@@ -37,9 +37,11 @@ func ValidateWithConfig(config ValidateConfig) bootx.MiddlewareFunc {
 				next(ctx)
 				return
 			}
-			err := config.Validator.Validate(ctx.Req())
-			if err != nil {
-				ctx.SetError(err)
+			if ctx.Req() != nil {
+				err := config.Validator.Validate(ctx.Req())
+				if err != nil {
+					ctx.SetError(err)
+				}
 			}
 			next(ctx)
 		}
