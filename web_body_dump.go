@@ -3,10 +3,12 @@ package bootx
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -31,27 +33,58 @@ var (
 	DefaultBodyDumpConfig = BodyDumpConfig{
 		Skipper: middleware.DefaultSkipper,
 	}
-	DefaultBodyDumpHandler = func(ctx echo.Context, reqData []byte, resData []byte) {
-		req := ctx.Request()
-		if req.ContentLength == 0 {
-			logger.Printf("%s %s %s \nresponse: %s",
-				req.RemoteAddr, req.Method, req.RequestURI, resData,
-			)
-		} else {
-			ctype := req.Header.Get(echo.HeaderContentType)
-			//only dump json
-			if strings.HasPrefix(ctype, echo.MIMEApplicationJSON) {
-				logger.Printf("%s %s %s \nrequest:%s \nresponse: %s",
-					req.RemoteAddr, req.Method, req.RequestURI, reqData, resData,
-				)
-			} else {
-				logger.Printf("%s %s %s \nrequest:%s \nresponse: %s",
-					req.RemoteAddr, req.Method, req.RequestURI, ctype, resData,
-				)
-			}
-		}
-	}
 )
+
+type DumpOption uint64
+
+const (
+	DumpNone DumpOption = 1 << iota
+	DumpHeader
+	DumpForm
+	DumpMultipartForm
+	DumpJson
+	DumpHtml
+	DumpXml
+	DumpJs
+)
+
+func BuildBodyDumpHandler(option DumpOption) BodyDumpHandler {
+	check := func(opt DumpOption, ctype string) bool {
+		if (option&DumpForm != 0 && strings.Contains(ctype, echo.MIMEApplicationForm)) ||
+			(option&DumpMultipartForm != 0 && strings.Contains(ctype, echo.MIMEMultipartForm)) ||
+			(option&DumpJson != 0 && strings.Contains(ctype, echo.MIMEApplicationJSON)) ||
+			(option&DumpHtml != 0 && strings.Contains(ctype, echo.MIMETextHTML)) ||
+			(option&DumpXml != 0 && strings.Contains(ctype, echo.MIMETextXML)) ||
+			(option&DumpJs != 0 && strings.Contains(ctype, echo.MIMEApplicationJavaScript)) {
+			return true
+		}
+		return false
+	}
+	return func(ctx echo.Context, reqData []byte, resData []byte) {
+		ctxReq := ctx.Request()
+		reqCtype := ctxReq.Header.Get(echo.HeaderContentType)
+		respHeader := ctx.Response().Header()
+		resCtype := respHeader.Get(echo.HeaderContentType)
+		buf := bytes.Buffer{}
+		buf.WriteString(fmt.Sprintf("%s %s %s\n", ctxReq.RemoteAddr, ctxReq.Method, ctxReq.RequestURI))
+		if option&DumpNone != 0 {
+			return
+		}
+		if option&DumpHeader != 0 {
+			buf.WriteString(fmt.Sprintf("request headers: %v\n", ctxReq.Header))
+		}
+		if check(option, reqCtype) {
+			buf.WriteString(fmt.Sprintf("request :\n%s\n", reqData))
+		}
+		if option&DumpHeader != 0 {
+			buf.WriteString(fmt.Sprintf("response headers: %v\n", respHeader))
+		}
+		if check(option, resCtype) {
+			buf.WriteString(fmt.Sprintf("response :\n%s", resData))
+		}
+		log.Println(buf.String())
+	}
+}
 
 func BodyDump(handler BodyDumpHandler) echo.MiddlewareFunc {
 	c := DefaultBodyDumpConfig
