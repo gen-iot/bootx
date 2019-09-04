@@ -2,6 +2,7 @@
 .vscode/
 vendor/
 Gopkg.lock
+static
 # Binaries for programs and plugins
 *.exe
 *.exe~
