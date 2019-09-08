@@ -1,8 +1,10 @@
 package bootx
 
 import (
+	"bytes"
 	"errors"
 	"github.com/labstack/echo/v4"
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -25,6 +27,15 @@ func NewCustomBinder() *CustomBinder {
 }
 
 func (cb *CustomBinder) Bind(i interface{}, c echo.Context) (err error) {
+	//支持多次bind
+	reqBody := make([]byte, 0)
+	if c.Request().Body != nil {
+		reqBody, _ = ioutil.ReadAll(c.Request().Body)
+	}
+	c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(reqBody))
+	defer func() {
+		c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(reqBody))
+	}()
 	// 先使用默认的绑定器
 	err = cb.defaultBinder.Bind(i, c)
 	if err != nil {

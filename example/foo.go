@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gen-iot/bootx"
 )
 
@@ -20,7 +21,7 @@ type FooResponse struct {
 }
 
 func (f FooApp) Bootstrap() {
-	bootx.Web().Use(bootx.BodyDump(bootx.DefaultBodyDumpHandler))
+	bootx.Web().Use(bootx.BodyDump(bootx.BuildBodyDumpHandler(bootx.DumpForm | bootx.DumpJson)))
 	bootx.Web().GET("", bootx.BuildHttpHandler(func(ctx bootx.Context) error {
 		return ctx.String(200, "hello word")
 	}))
@@ -29,6 +30,27 @@ func (f FooApp) Bootstrap() {
 			func() (*FooResponse, error) {
 				return &FooResponse{Msg: "hello word"}, nil
 			}))
+	bootx.Web().POST("/foo/bar",
+		bootx.BuildHttpHandler(
+			func(ctx bootx.Context, req *TestBindRequest) (*FooResponse, error) {
+				fmt.Println(req.Id)
+				r1 := new(TestBindAgainRequest)
+				err := ctx.Bind(r1)
+				if err != nil {
+					return &FooResponse{Msg: "bind again err"}, nil
+				}
+				return &FooResponse{Msg: "hello word"}, nil
+			}))
+}
+
+type TestBindRequest struct {
+	Id  string `json:"id"`
+	Msg string `json:"msg"`
+}
+type TestBindAgainRequest struct {
+	Id   string `json:"id"`
+	Msg  string `json:"msg"`
+	Name string `json:"name"`
 }
 
 func (f FooApp) Shutdown() {
