@@ -26,22 +26,27 @@ func NewCustomBinder() *CustomBinder {
 	}
 }
 
+var EnableBindManyTimes = false
+
 func (cb *CustomBinder) Bind(i interface{}, c echo.Context) (err error) {
-	//支持多次bind
-	reqBody := make([]byte, 0)
-	if c.Request().Body != nil {
-		reqBody, _ = ioutil.ReadAll(c.Request().Body)
-	}
-	c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(reqBody))
-	defer func() {
+	if EnableBindManyTimes {
+		//支持多次bind
+		reqBody := make([]byte, 0)
+		if c.Request().Body != nil {
+			reqBody, _ = ioutil.ReadAll(c.Request().Body)
+		}
 		c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(reqBody))
-	}()
+		defer func() {
+			c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(reqBody))
+		}()
+	}
 	// 先使用默认的绑定器
 	err = cb.defaultBinder.Bind(i, c)
 	if err != nil {
 		return
 	}
-	//实现对path param的绑定
+	// 实现对path param的绑定
+	// todo 后期echo支持后移除
 	pNames := c.ParamNames()
 	pValues := c.ParamValues()
 	data := make(map[string][]string)
