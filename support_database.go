@@ -80,6 +80,10 @@ func (this *DataBase) Tx(txFunc func(*gorm.DB) error) (err error) {
 	return tx.Commit().Error
 }
 
+func (this *DataBase) Query() (query *gorm.DB) {
+	return DB().DB
+}
+
 func dbInit(dbType string, connStr string) {
 	c := DBDefaultConfig
 	c.DatabaseType = dbType
