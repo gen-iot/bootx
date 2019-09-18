@@ -62,6 +62,12 @@ func DB() *DataBase {
 	return gDb
 }
 
+func ReplaceGlobalDataBase(db *DataBase) (old *DataBase) {
+	std.Assert(db != nil, "db is nil")
+	old, gDb = gDb, db
+	return
+}
+
 func (this *DataBase) Tx(txFunc func(*gorm.DB) error) (err error) {
 	tx := this.Begin()
 	defer tx.Rollback()
