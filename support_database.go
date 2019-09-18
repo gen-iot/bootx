@@ -63,7 +63,7 @@ func DB() *DataBase {
 }
 
 func ReplaceGlobalDataBase(db *DataBase) (old *DataBase) {
-	std.Assert(db != nil, "db is nil")
+	std.Assert(db != nil && db.DB != nil, "illegal param")
 	old, gDb = gDb, db
 	return
 }
