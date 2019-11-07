@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"mime/multipart"
+	"path"
 	"strings"
 )
 
@@ -45,17 +46,14 @@ func (ctx *UploadContext) Validate() error {
 		return errTooLargeFile
 	}
 	ctx.FileName = file.Filename
-	vs := strings.Split(file.Filename, ".")
-	if len(vs) > 1 {
-		ctx.FileExt = strings.ToLower(vs[len(vs)-1])
-		if len(ctx.AllowExtensions) > 0 {
-			for _, ext := range ctx.AllowExtensions {
-				if ext == ctx.FileExt {
-					break
-				}
+	ctx.FileExt = strings.ToLower(path.Ext(file.Filename))
+	if len(ctx.AllowExtensions) > 0 {
+		for _, ext := range ctx.AllowExtensions {
+			if strings.ToLower(ext) == ctx.FileExt {
+				break
 			}
-			return errNotAllowFileType
 		}
+		return errNotAllowFileType
 	}
 	ctx.FileHeader = file
 	return nil
