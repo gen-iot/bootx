@@ -14,7 +14,7 @@ import (
 
 type DBConfig struct {
 	Default          bool   `yaml:"default" json:"default"`
-	Name             string `yaml:"name" json:"name" validate:"required"`
+	Name             string `yaml:"name" json:"name"`
 	DatabaseType     string `yaml:"databaseType" json:"databaseType" validate:"oneof=mysql postgres sqlite3 mssql"`
 	ConnStr          string `yaml:"connStr" json:"connStr" validate:"required"`
 	ShowSql          bool   `yaml:"showSql" json:"showSql"`
@@ -47,13 +47,14 @@ func NewDB(dbType string, connStr string, name ...string) *DataBase {
 	c.ConnStr = connStr
 	if len(name) > 0 && len(name[0]) > 0 {
 		c.Name = name[0]
-	} else {
-		c.Name = std.GenRandomUUID()
 	}
 	return NewDBWithConf(c)
 }
 
 func NewDBWithConf(conf DBConfig) *DataBase {
+	if len(conf.Name) == 0 {
+		conf.Name = std.GenRandomUUID()
+	}
 	err := std.ValidateStruct(conf)
 	std.AssertError(err, "invalid database configuration")
 	logger.Printf("database db(%s %s) init ...", conf.Name, conf.ConnStr)
