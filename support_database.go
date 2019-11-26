@@ -218,7 +218,7 @@ func dbInit(dbType string, connStr string) {
 func dbInitWithConfig(conf []DBConfig) {
 	std.Assert(len(conf) > 0, "at least one database config should be specified")
 	dbOnce.Do(func() {
-		dbRwLock.Unlock()
+		dbRwLock.Lock()
 		defer dbRwLock.Unlock()
 		dbMap = make(map[string]*DataBase, len(conf))
 		dbNames = make([]string, 0, len(conf))
