@@ -41,9 +41,20 @@ func initModules(configs ...interface{}) (webConf, dbConf, redisConf bool) {
 			webInitWithConfig(*c)
 			webConf = true
 		case DBConfig:
-			dbInitWithConfig(c)
+			dbInitWithConfig([]DBConfig{c})
+			dbConf = true
 		case *DBConfig:
-			dbInitWithConfig(*c)
+			dbInitWithConfig([]DBConfig{*c})
+			dbConf = true
+		case []DBConfig:
+			dbInitWithConfig(c)
+			dbConf = true
+		case []*DBConfig:
+			ds := make([]DBConfig, 0, len(c))
+			for _, db := range c {
+				ds = append(ds, *db)
+			}
+			dbInitWithConfig(ds)
 			dbConf = true
 		case RedisConfig:
 			redisInitWithConfig(c)
