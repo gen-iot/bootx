@@ -31,7 +31,8 @@ func (f FooApp) GetVersion() string {
 }
 
 func (f FooApp) Bootstrap() {
-	bootx.Web().GET("", bootx.BuildHttpHandler(func(ctx bootx.Context) error {
+    web:=bootx.Web()
+	web.GET("", web.BuildHttpHandler(func(ctx bootx.Context) error {
 		return ctx.String(200, "hello word")
 	}))
 }
