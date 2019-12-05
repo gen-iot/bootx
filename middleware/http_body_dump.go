@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/gen-iot/bootx"
 	"github.com/labstack/echo/v4"
 	"io"
 	"io/ioutil"
@@ -25,7 +24,7 @@ type (
 	}
 
 	// BodyDumpHandler receives the request and response payload.
-	BodyDumpHandler func(bootx.Context, []byte, []byte)
+	BodyDumpHandler func(echo.Context, []byte, []byte)
 )
 
 var (
@@ -62,7 +61,7 @@ func DefaultBodyDumpHandler(option BodyDumpOption) BodyDumpHandler {
 		}
 		return false
 	}
-	return func(ctx bootx.Context, reqData []byte, resData []byte) {
+	return func(ctx echo.Context, reqData []byte, resData []byte) {
 		ctxReq := ctx.Request()
 		reqCtype := ctxReq.Header.Get(echo.HeaderContentType)
 		respHeader := ctx.Response().Header()
@@ -88,17 +87,17 @@ func DefaultBodyDumpHandler(option BodyDumpOption) BodyDumpHandler {
 	}
 }
 
-func BodyDump(option BodyDumpOption) bootx.MiddlewareFunc {
+func BodyDump(option BodyDumpOption) echo.MiddlewareFunc {
 	return BodyDumpWithHandler(DefaultBodyDumpHandler(option))
 }
 
-func BodyDumpWithHandler(handler BodyDumpHandler) bootx.MiddlewareFunc {
+func BodyDumpWithHandler(handler BodyDumpHandler) echo.MiddlewareFunc {
 	c := DefaultBodyDumpConfig
 	c.Handler = handler
 	return BodyDumpWithConfig(c)
 }
 
-func BodyDumpWithConfig(config BodyDumpConfig) bootx.MiddlewareFunc {
+func BodyDumpWithConfig(config BodyDumpConfig) echo.MiddlewareFunc {
 	// Defaults
 	if config.Handler == nil {
 		panic("bootx: body-dump middleware requires a handler function")
@@ -106,8 +105,8 @@ func BodyDumpWithConfig(config BodyDumpConfig) bootx.MiddlewareFunc {
 	if config.Skipper == nil {
 		config.Skipper = DefaultBodyDumpConfig.Skipper
 	}
-	return func(next bootx.HandlerFunc) bootx.HandlerFunc {
-		return func(c bootx.Context) {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
 			// Req
 			reqBody := make([]byte, 0)
 			if c.Request().Body != nil { // Read
@@ -119,9 +118,9 @@ func BodyDumpWithConfig(config BodyDumpConfig) bootx.MiddlewareFunc {
 			mw := io.MultiWriter(c.Response().Writer, resBody)
 			writer := &bodyDumpResponseWriter{Writer: mw, ResponseWriter: c.Response().Writer}
 			c.Response().Writer = writer
-			next(c)
+			err := next(c)
 			config.Handler(c, reqBody, resBody.Bytes())
-			return
+			return err
 		}
 	}
 }
