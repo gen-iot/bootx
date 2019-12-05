@@ -23,7 +23,8 @@ type FooResponse struct {
 
 func (f FooApp) Bootstrap() {
 	web := bootx.Web()
-	web.PreUse(middleware.BodyDump(middleware.DumpTextPlain | middleware.DumpForm | middleware.DumpJson))
+	web.Use(middleware.BodyDump(middleware.DumpTextPlain | middleware.DumpForm | middleware.DumpJson))
+	web.PreUse(middleware.Dump())
 	web.GET("", web.BuildHttpHandler(func(ctx bootx.Context) error {
 		return ctx.String(200, "hello word")
 	}))

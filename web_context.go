@@ -10,9 +10,12 @@ import (
 	"strings"
 )
 
+const HeaderFuncName = "BootX-Func-Name"
+
 type Context interface {
 	echo.Context
 	Id() string
+	FuncName() string
 
 	SetUserAuthData(data interface{})
 	UserAuthData() interface{}
@@ -75,6 +78,10 @@ func (c *contextImpl) UserAuthData() interface{} {
 
 func (c *contextImpl) Id() string {
 	return c.Request().Header.Get(echo.HeaderXRequestID)
+}
+
+func (c *contextImpl) FuncName() string {
+	return c.Request().Header.Get(HeaderFuncName)
 }
 
 func (c *contextImpl) SetReq(in interface{}) {
@@ -165,6 +172,7 @@ func (this *WebX) BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) ech
 	_, outFlags := checkOutParam(fName, ft)
 	flags := inFlags | outFlags
 	return ConvertFromEchoCtx(func(ctx Context) error {
+		ctx.Request().Header.Set(HeaderFuncName, fName)
 		h := ____buildChain(flags, inType, fv, m...)
 		//pre use
 		if this.preUseMiddleware.Len() > 0 {
@@ -304,7 +312,7 @@ func checkOutParam(name string, t reflect.Type) (reflect.Type, uint32) {
 
 func getFuncName(fv reflect.Value) string {
 	fname := runtime.FuncForPC(reflect.Indirect(fv).Pointer()).Name()
-	idx := strings.LastIndex(fname, ".")
+	idx := strings.LastIndex(fname, "/")
 	if idx != -1 {
 		fname = fname[idx+1:]
 	}
