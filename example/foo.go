@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/gen-iot/bootx"
+	"github.com/gen-iot/bootx/middleware"
 )
 
 type FooApp struct {
@@ -21,17 +22,18 @@ type FooResponse struct {
 }
 
 func (f FooApp) Bootstrap() {
-	bootx.Web().Use(bootx.BodyDump(bootx.BuildBodyDumpHandler(bootx.DumpForm | bootx.DumpJson)))
-	bootx.Web().GET("", bootx.BuildHttpHandler(func(ctx bootx.Context) error {
+	web := bootx.Web()
+	web.PreUse(middleware.BodyDump(middleware.DumpTextPlain | middleware.DumpForm | middleware.DumpJson))
+	web.GET("", web.BuildHttpHandler(func(ctx bootx.Context) error {
 		return ctx.String(200, "hello word")
 	}))
-	bootx.Web().GET("/foo/bar",
-		bootx.BuildHttpHandler(
+	web.GET("/foo/bar",
+		web.BuildHttpHandler(
 			func() (*FooResponse, error) {
 				return &FooResponse{Msg: "hello word"}, nil
 			}))
-	bootx.Web().POST("/foo/bar",
-		bootx.BuildHttpHandler(
+	web.POST("/foo/bar",
+		web.BuildHttpHandler(
 			func(ctx bootx.Context, req *TestBindRequest) (*FooResponse, error) {
 				fmt.Println(req.Id)
 				r1 := new(TestBindAgainRequest)
@@ -47,6 +49,7 @@ type TestBindRequest struct {
 	Id  string `json:"id"`
 	Msg string `json:"msg"`
 }
+
 type TestBindAgainRequest struct {
 	Id   string `json:"id"`
 	Msg  string `json:"msg"`

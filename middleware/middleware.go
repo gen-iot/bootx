@@ -1,13 +1,13 @@
 package middleware
 
 import (
-	"github.com/labstack/echo/v4"
+	"github.com/gen-iot/bootx"
 )
 
 type (
-	Skipper func(ctx echo.Context) bool
+	Skipper func(ctx bootx.Context) bool
 )
 
-func DefaultSkipper(echo.Context) bool {
+func DefaultSkipper(bootx.Context) bool {
 	return false
 }

@@ -13,7 +13,7 @@ type middlewares struct {
 
 func (this *middlewares) Use(m ...MiddlewareFunc) {
 	if this.midwares == nil {
-		this.midwares = make([]MiddlewareFunc, 0, 4)
+		this.midwares = make([]MiddlewareFunc, 0, len(m))
 	}
 	this.midwares = append(this.midwares, m...)
 }
@@ -23,9 +23,13 @@ func (this *middlewares) Len() int {
 }
 
 func (this *middlewares) buildChain(h HandlerFunc) HandlerFunc {
-	std.Assert(h != nil, "buildMiddleware, h == nil")
-	for i := len(this.midwares) - 1; i >= 0; i-- {
-		h = this.midwares[i](h)
+	return applyMiddleware(h, this.midwares...)
+}
+
+func applyMiddleware(h HandlerFunc, m ...MiddlewareFunc) HandlerFunc {
+	std.Assert(h != nil, "applyMiddleware, h == nil")
+	for i := len(m) - 1; i >= 0; i-- {
+		h = m[i](h)
 	}
 	return h
 }

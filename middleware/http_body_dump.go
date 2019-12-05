@@ -1,11 +1,11 @@
-package bootx
+package middleware
 
 import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/gen-iot/bootx"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"io"
 	"io/ioutil"
 	"log"
@@ -20,47 +20,49 @@ import (
  */
 type (
 	BodyDumpConfig struct {
-		Skipper middleware.Skipper
+		Skipper Skipper
 		Handler BodyDumpHandler
 	}
 
 	// BodyDumpHandler receives the request and response payload.
-	BodyDumpHandler func(echo.Context, []byte, []byte)
+	BodyDumpHandler func(bootx.Context, []byte, []byte)
 )
 
 var (
 	// DefaultBodyDumpConfig is the default BodyDump middleware config.
 	DefaultBodyDumpConfig = BodyDumpConfig{
-		Skipper: middleware.DefaultSkipper,
+		Skipper: DefaultSkipper,
 	}
 )
 
-type DumpOption uint64
+type BodyDumpOption uint64
 
 const (
-	DumpNone DumpOption = 1 << iota
+	DumpNone BodyDumpOption = 1 << iota
 	DumpHeader
 	DumpForm
 	DumpMultipartForm
 	DumpJson
 	DumpHtml
+	DumpTextPlain
 	DumpXml
 	DumpJs
 )
 
-func BuildBodyDumpHandler(option DumpOption) BodyDumpHandler {
-	check := func(opt DumpOption, ctype string) bool {
+func DefaultBodyDumpHandler(option BodyDumpOption) BodyDumpHandler {
+	check := func(opt BodyDumpOption, ctype string) bool {
 		if (option&DumpForm != 0 && strings.Contains(ctype, echo.MIMEApplicationForm)) ||
 			(option&DumpMultipartForm != 0 && strings.Contains(ctype, echo.MIMEMultipartForm)) ||
 			(option&DumpJson != 0 && strings.Contains(ctype, echo.MIMEApplicationJSON)) ||
 			(option&DumpHtml != 0 && strings.Contains(ctype, echo.MIMETextHTML)) ||
+			(option&DumpTextPlain != 0 && strings.Contains(ctype, echo.MIMETextPlain)) ||
 			(option&DumpXml != 0 && strings.Contains(ctype, echo.MIMETextXML)) ||
 			(option&DumpJs != 0 && strings.Contains(ctype, echo.MIMEApplicationJavaScript)) {
 			return true
 		}
 		return false
 	}
-	return func(ctx echo.Context, reqData []byte, resData []byte) {
+	return func(ctx bootx.Context, reqData []byte, resData []byte) {
 		ctxReq := ctx.Request()
 		reqCtype := ctxReq.Header.Get(echo.HeaderContentType)
 		respHeader := ctx.Response().Header()
@@ -86,13 +88,17 @@ func BuildBodyDumpHandler(option DumpOption) BodyDumpHandler {
 	}
 }
 
-func BodyDump(handler BodyDumpHandler) echo.MiddlewareFunc {
+func BodyDump(option BodyDumpOption) bootx.MiddlewareFunc {
+	return BodyDumpWithHandler(DefaultBodyDumpHandler(option))
+}
+
+func BodyDumpWithHandler(handler BodyDumpHandler) bootx.MiddlewareFunc {
 	c := DefaultBodyDumpConfig
 	c.Handler = handler
 	return BodyDumpWithConfig(c)
 }
 
-func BodyDumpWithConfig(config BodyDumpConfig) echo.MiddlewareFunc {
+func BodyDumpWithConfig(config BodyDumpConfig) bootx.MiddlewareFunc {
 	// Defaults
 	if config.Handler == nil {
 		panic("bootx: body-dump middleware requires a handler function")
@@ -100,8 +106,8 @@ func BodyDumpWithConfig(config BodyDumpConfig) echo.MiddlewareFunc {
 	if config.Skipper == nil {
 		config.Skipper = DefaultBodyDumpConfig.Skipper
 	}
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) (err error) {
+	return func(next bootx.HandlerFunc) bootx.HandlerFunc {
+		return func(c bootx.Context) {
 			// Req
 			reqBody := make([]byte, 0)
 			if c.Request().Body != nil { // Read
@@ -113,7 +119,7 @@ func BodyDumpWithConfig(config BodyDumpConfig) echo.MiddlewareFunc {
 			mw := io.MultiWriter(c.Response().Writer, resBody)
 			writer := &bodyDumpResponseWriter{Writer: mw, ResponseWriter: c.Response().Writer}
 			c.Response().Writer = writer
-			err = next(c)
+			next(c)
 			config.Handler(c, reqBody, resBody.Bytes())
 			return
 		}

@@ -11,6 +11,7 @@ import (
 	"sync"
 )
 
+const HeaderAuthorization = echo.HeaderAuthorization
 const (
 	DefaultHttpPort     = 8080
 	DefaultStaticRoot   = ""
@@ -47,7 +48,8 @@ var WebDefaultConfig = WebConfig{
 type WebX struct {
 	conf WebConfig
 	*echo.Echo
-	ctxPool *sync.Pool
+	ctxPool          *sync.Pool
+	preUseMiddleware middlewares
 }
 
 func (this *WebX) grabCtx() *contextImpl {
@@ -58,6 +60,10 @@ func (this *WebX) grabCtx() *contextImpl {
 func (this *WebX) releaseCtx(ctx *contextImpl) {
 	std.Assert(ctx != nil, "return ctx is nil")
 	this.ctxPool.Put(ctx)
+}
+
+func (this *WebX) PreUse(m ...MiddlewareFunc) {
+	this.preUseMiddleware.Use(m...)
 }
 
 func NewWeb() *WebX {
@@ -73,9 +79,9 @@ func (this *WebX) NewContext(r *http.Request, w http.ResponseWriter) Context {
 
 func NewWebWithConf(conf WebConfig) *WebX {
 	web := &WebX{
-		conf,
-		echo.New(),
-		&sync.Pool{
+		conf: conf,
+		Echo: echo.New(),
+		ctxPool: &sync.Pool{
 			New: func() interface{} {
 				return new(contextImpl)
 			},

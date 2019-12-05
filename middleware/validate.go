@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"github.com/gen-iot/bootx"
+	"github.com/gen-iot/std"
 )
 
 type (
@@ -17,7 +18,8 @@ type (
 var (
 	// DefaultBodyDumpConfig is the default BodyDump middleware config.
 	DefaultValidateConfig = ValidateConfig{
-		Skipper: DefaultSkipper,
+		Validator: std.NewValidator(std.LANG_ZH),
+		Skipper:   DefaultSkipper,
 	}
 )
 

@@ -38,6 +38,11 @@ type contextImpl struct {
 	code     int
 	err      error
 	message  string
+
+	inType      reflect.Type
+	handlerV    reflect.Value
+	funcFlags   uint32
+	handlerFunc HandlerFunc
 }
 
 func (c *contextImpl) reset() {
@@ -48,6 +53,10 @@ func (c *contextImpl) reset() {
 	c.code = http.StatusOK
 	c.err = nil
 	c.message = ""
+	c.handlerFunc = nil
+	c.funcFlags = 0
+	c.inType = nil
+	c.handlerV = reflect.ValueOf(nil)
 }
 
 func (c *contextImpl) init(echoCtx echo.Context) {
@@ -144,7 +153,7 @@ func ConvertFromEchoCtx(h func(Context) (err error)) echo.HandlerFunc {
 }
 
 //noinspection ALL
-func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc {
+func (this *WebX) BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc {
 	fv, ok := handler.(reflect.Value)
 	if !ok {
 		fv = reflect.ValueOf(handler)
@@ -155,10 +164,23 @@ func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc
 	inType, inFlags := checkInParam(fName, ft)
 	_, outFlags := checkOutParam(fName, ft)
 	flags := inFlags | outFlags
-	mid := middlewares{}
-	mid.Use(m...)
 	return ConvertFromEchoCtx(func(ctx Context) error {
-		//has req data
+		h := ____buildChain(flags, inType, fv, m...)
+		//pre use
+		if this.preUseMiddleware.Len() > 0 {
+			h = applyMiddleware(h, this.preUseMiddleware.midwares...)
+		}
+		h(ctx)
+		//if has rsp & no error need write response,otherwise err handler will handle
+		if !ctx.Response().Committed && ctx.Resp() != nil && ctx.Err() == nil {
+			return ctx.JSONPretty(ctx.HttpStatusCode(), ctx.Resp(), jsonIndent)
+		}
+		return ctx.Err()
+	})
+}
+
+func ____buildChain(flags uint32, inType reflect.Type, handlerV reflect.Value, m ...MiddlewareFunc) HandlerFunc {
+	return func(ctx Context) {
 		if flags&handlerHasReqData == handlerHasReqData {
 			elementType := inType
 			isPtr := false
@@ -178,32 +200,27 @@ func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc
 			}
 			ctx.SetReq(req)
 		}
-		fn := mid.buildChain(buildInvoke(fv, flags))
-		fn(ctx)
-		//if has rsp & no error need write response,otherwise err handler will handle
-		if !ctx.Response().Committed && ctx.Resp() != nil && ctx.Err() == nil {
-			return ctx.JSONPretty(ctx.HttpStatusCode(), ctx.Resp(), jsonIndent)
-		}
-		return ctx.Err()
-	})
+		h := applyMiddleware(____buildCall(handlerV, flags), m...)
+		h(ctx)
+	}
 }
 
-func buildInvoke(handlerV reflect.Value, flags uint32) HandlerFunc {
+func ____buildCall(handlerV reflect.Value, flags uint32) HandlerFunc {
 	return func(ctx Context) {
 		inParams := make([]reflect.Value, 0)
 		//has Ctx
-		if flags&handlerHasCtx == handlerHasCtx {
+		if flags&handlerHasCtx != 0 {
 			inParams = append(inParams, reflect.ValueOf(ctx))
 		}
 		//has req data
-		if flags&handlerHasReqData == handlerHasReqData {
+		if flags&handlerHasReqData != 0 {
 			inParams = append(inParams, reflect.ValueOf(ctx.Req()))
 		}
 		outs := handlerV.Call(inParams)
 		rspErrIdx := -1
 		rspDataIdx := -1
 		//has rsp data
-		if flags&handlerHasRsp == handlerHasRsp {
+		if flags&handlerHasRsp != 0 {
 			rspErrIdx = 1
 			rspDataIdx = 0
 		} else {
