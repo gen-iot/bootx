@@ -159,6 +159,11 @@ func ConvertFromEchoCtx(h func(Context) (err error)) echo.HandlerFunc {
 	}
 }
 
+//for compatible with old api ,use global web
+func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc {
+	return Web().BuildHttpHandler(handler, m...)
+}
+
 //noinspection ALL
 func (this *WebX) BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc {
 	fv, ok := handler.(reflect.Value)

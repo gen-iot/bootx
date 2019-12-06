@@ -71,10 +71,8 @@ func DumpWithConfig(config DumpConfig) bootx.MiddlewareFunc {
 				next(ctx)
 				return
 			}
-			req := ctx.Req()
 			next(ctx)
-			rsp := ctx.Resp()
-			config.Handler(ctx, req, rsp)
+			config.Handler(ctx, ctx.Req(), ctx.Resp())
 		}
 	}
 }
