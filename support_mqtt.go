@@ -89,6 +89,8 @@ func NewMqttPubCli(mqttPubApiUrl, username, pass string, timeoutSec int64, debug
 	cli := &MqttPubCli{
 		httpCli:        newHttpClient(timeoutSec),
 		MqttPubApiAddr: mqttPubApiUrl,
+		UserName:       username,
+		Password:       pass,
 		Timeout:        timeoutSec,
 		Debug:          debug,
 	}
