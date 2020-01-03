@@ -27,7 +27,7 @@ var (
 func DefaultDumpHandler(ctx bootx.Context, in interface{}, out interface{}, latency int64) {
 	ctxReq := ctx.Request()
 	buf := bytes.Buffer{}
-	buf.WriteString(fmt.Sprintf("\n< %s >    %s %s %s   latency : %d \n",
+	buf.WriteString(fmt.Sprintf("\n< %s >    %s %s %s   latency : %d ms\n",
 		ctx.FuncName(), ctxReq.RemoteAddr, ctxReq.Method, ctxReq.RequestURI, latency))
 	buf.WriteString("in :\n")
 	if in != nil {
@@ -75,7 +75,7 @@ func DumpWithConfig(config DumpConfig) bootx.MiddlewareFunc {
 			start := time.Now()
 			next(ctx)
 			stop := time.Now()
-			l := stop.Sub(start).Microseconds()
+			l := stop.Sub(start).Milliseconds()
 			config.Handler(ctx, ctx.Req(), ctx.Resp(), l)
 		}
 	}

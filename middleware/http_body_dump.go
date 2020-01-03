@@ -68,7 +68,7 @@ func DefaultBodyDumpHandler(option BodyDumpOption) BodyDumpHandler {
 		respHeader := ctx.Response().Header()
 		resCtype := respHeader.Get(echo.HeaderContentType)
 		buf := bytes.Buffer{}
-		buf.WriteString(fmt.Sprintf("%s %s %s     latency : %d \n",
+		buf.WriteString(fmt.Sprintf("%s %s %s     latency : %d ms\n",
 			ctxReq.RemoteAddr, ctxReq.Method, ctxReq.RequestURI, latency))
 		if option&DumpNone != 0 {
 			return
@@ -123,7 +123,7 @@ func BodyDumpWithConfig(config BodyDumpConfig) echo.MiddlewareFunc {
 			c.Response().Writer = writer
 			err := next(c)
 			stop := time.Now()
-			l := stop.Sub(start).Microseconds()
+			l := stop.Sub(start).Milliseconds()
 			config.Handler(c, reqBody, resBody.Bytes(), l)
 			return err
 		}
