@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 /*
@@ -24,7 +25,7 @@ type (
 	}
 
 	// BodyDumpHandler receives the request and response payload.
-	BodyDumpHandler func(echo.Context, []byte, []byte)
+	BodyDumpHandler func(echo.Context, []byte, []byte, int64)
 )
 
 var (
@@ -61,13 +62,14 @@ func DefaultBodyDumpHandler(option BodyDumpOption) BodyDumpHandler {
 		}
 		return false
 	}
-	return func(ctx echo.Context, reqData []byte, resData []byte) {
+	return func(ctx echo.Context, reqData []byte, resData []byte, latency int64) {
 		ctxReq := ctx.Request()
 		reqCtype := ctxReq.Header.Get(echo.HeaderContentType)
 		respHeader := ctx.Response().Header()
 		resCtype := respHeader.Get(echo.HeaderContentType)
 		buf := bytes.Buffer{}
-		buf.WriteString(fmt.Sprintf("%s %s %s\n", ctxReq.RemoteAddr, ctxReq.Method, ctxReq.RequestURI))
+		buf.WriteString(fmt.Sprintf("%s %s %s     latency : %d \n",
+			ctxReq.RemoteAddr, ctxReq.Method, ctxReq.RequestURI, latency))
 		if option&DumpNone != 0 {
 			return
 		}
@@ -107,6 +109,7 @@ func BodyDumpWithConfig(config BodyDumpConfig) echo.MiddlewareFunc {
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			start := time.Now()
 			// Req
 			reqBody := make([]byte, 0)
 			if c.Request().Body != nil { // Read
@@ -119,7 +122,9 @@ func BodyDumpWithConfig(config BodyDumpConfig) echo.MiddlewareFunc {
 			writer := &bodyDumpResponseWriter{Writer: mw, ResponseWriter: c.Response().Writer}
 			c.Response().Writer = writer
 			err := next(c)
-			config.Handler(c, reqBody, resBody.Bytes())
+			stop := time.Now()
+			l := stop.Sub(start).Microseconds()
+			config.Handler(c, reqBody, resBody.Bytes(), l)
 			return err
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gen-iot/bootx"
 	"log"
+	"time"
 )
 
 type (
@@ -13,7 +14,7 @@ type (
 		Skipper Skipper
 		Handler DumpHandler
 	}
-	DumpHandler func(ctx bootx.Context, in interface{}, out interface{})
+	DumpHandler func(ctx bootx.Context, in interface{}, out interface{}, latency int64)
 )
 
 var (
@@ -23,11 +24,11 @@ var (
 	}
 )
 
-func DefaultDumpHandler(ctx bootx.Context, in interface{}, out interface{}) {
+func DefaultDumpHandler(ctx bootx.Context, in interface{}, out interface{}, latency int64) {
 	ctxReq := ctx.Request()
 	buf := bytes.Buffer{}
-	buf.WriteString(fmt.Sprintf("\n< %s >    %s %s %s\n",
-		ctx.FuncName(), ctxReq.RemoteAddr, ctxReq.Method, ctxReq.RequestURI))
+	buf.WriteString(fmt.Sprintf("\n< %s >    %s %s %s   latency : %d \n",
+		ctx.FuncName(), ctxReq.RemoteAddr, ctxReq.Method, ctxReq.RequestURI, latency))
 	buf.WriteString("in :\n")
 	if in != nil {
 		bt, err := json.MarshalIndent(in, "", "  ")
@@ -71,8 +72,11 @@ func DumpWithConfig(config DumpConfig) bootx.MiddlewareFunc {
 				next(ctx)
 				return
 			}
+			start := time.Now()
 			next(ctx)
-			config.Handler(ctx, ctx.Req(), ctx.Resp())
+			stop := time.Now()
+			l := stop.Sub(start).Microseconds()
+			config.Handler(ctx, ctx.Req(), ctx.Resp(), l)
 		}
 	}
 }
