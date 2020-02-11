@@ -12,6 +12,9 @@ import (
 
 const HeaderFuncName = "BootX-Func-Name"
 
+//if DisableReqPreBind == true ,you should bind req yourself
+var DisableReqPreBind = true
+
 type Context interface {
 	echo.Context
 	Id() string
@@ -20,9 +23,21 @@ type Context interface {
 	SetUserAuthData(data interface{})
 	UserAuthData() interface{}
 
+	setHandlerValue(hv reflect.Value)
+	HandlerValue() reflect.Value
+
+	setFuncFlags(flags uint32)
+
+	setInType(t reflect.Type)
+	InType() reflect.Type
+
+	HasInReqArg() bool
+	HasInCtxArg() bool
+
 	SetReq(in interface{})
 	Req() interface{}
 
+	HasOutRespArg() bool
 	SetResp(out interface{})
 	Resp() interface{}
 
@@ -42,10 +57,9 @@ type contextImpl struct {
 	err      error
 	message  string
 
-	inType      reflect.Type
-	handlerV    reflect.Value
-	funcFlags   uint32
-	handlerFunc HandlerFunc
+	inType    reflect.Type
+	handlerV  reflect.Value
+	funcFlags uint32
 }
 
 func (c *contextImpl) reset() {
@@ -56,7 +70,6 @@ func (c *contextImpl) reset() {
 	c.code = http.StatusOK
 	c.err = nil
 	c.message = ""
-	c.handlerFunc = nil
 	c.funcFlags = 0
 	c.inType = nil
 	c.handlerV = reflect.ValueOf(nil)
@@ -68,14 +81,6 @@ func (c *contextImpl) init(echoCtx echo.Context) {
 	c.code = http.StatusOK
 }
 
-func (c *contextImpl) SetUserAuthData(data interface{}) {
-	c.AuthData = data
-}
-
-func (c *contextImpl) UserAuthData() interface{} {
-	return c.AuthData
-}
-
 func (c *contextImpl) Id() string {
 	return c.Request().Header.Get(echo.HeaderXRequestID)
 }
@@ -84,12 +89,52 @@ func (c *contextImpl) FuncName() string {
 	return c.Request().Header.Get(HeaderFuncName)
 }
 
+func (c *contextImpl) SetUserAuthData(data interface{}) {
+	c.AuthData = data
+}
+
+func (c *contextImpl) UserAuthData() interface{} {
+	return c.AuthData
+}
+
+func (c *contextImpl) setHandlerValue(hv reflect.Value) {
+	c.handlerV = hv
+}
+
+func (c *contextImpl) HandlerValue() reflect.Value {
+	return c.handlerV
+}
+
+func (c *contextImpl) setFuncFlags(flags uint32) {
+	c.funcFlags = flags
+}
+
+func (c *contextImpl) setInType(t reflect.Type) {
+	c.inType = t
+}
+
+func (c *contextImpl) InType() reflect.Type {
+	return c.inType
+}
+
+func (c *contextImpl) HasInReqArg() bool {
+	return c.funcFlags&handlerHasReqData != 0
+}
+
+func (c *contextImpl) HasInCtxArg() bool {
+	return c.funcFlags&handlerHasCtx != 0
+}
+
 func (c *contextImpl) SetReq(in interface{}) {
 	c.in = in
 }
 
 func (c *contextImpl) Req() interface{} {
 	return c.in
+}
+
+func (c *contextImpl) HasOutRespArg() bool {
+	return c.funcFlags&handlerHasRsp != 0
 }
 
 func (c *contextImpl) SetResp(out interface{}) {
@@ -160,6 +205,7 @@ func ConvertFromEchoCtx(h func(Context) (err error)) echo.HandlerFunc {
 }
 
 //for compatible with old api ,use global web
+//noinspection ALL
 func BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) echo.HandlerFunc {
 	return Web().BuildHttpHandler(handler, m...)
 }
@@ -178,7 +224,10 @@ func (this *WebX) BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) ech
 	flags := inFlags | outFlags
 	return ConvertFromEchoCtx(func(ctx Context) error {
 		ctx.Request().Header.Set(HeaderFuncName, fName)
-		h := ____buildChain(flags, inType, fv, m...)
+		ctx.setHandlerValue(fv)
+		ctx.setFuncFlags(flags)
+		ctx.setInType(inType)
+		h := ____buildChain(m...)
 		//pre use
 		if this.preUseMiddleware.Len() > 0 {
 			h = applyMiddleware(h, this.preUseMiddleware.midwares...)
@@ -192,48 +241,53 @@ func (this *WebX) BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) ech
 	})
 }
 
-func ____buildChain(flags uint32, inType reflect.Type, handlerV reflect.Value, m ...MiddlewareFunc) HandlerFunc {
+func ____buildChain(m ...MiddlewareFunc) HandlerFunc {
 	return func(ctx Context) {
-		if flags&handlerHasReqData == handlerHasReqData {
-			elementType := inType
-			isPtr := false
-			if inType.Kind() == reflect.Ptr {
-				elementType = inType.Elem()
-				isPtr = true
+		//if DisableReqPreBind== true ,you should bind req yourself
+		if !DisableReqPreBind {
+			if ctx.HasInReqArg() {
+				elementType := ctx.InType()
+				isPtr := false
+				if elementType.Kind() == reflect.Ptr {
+					elementType = elementType.Elem()
+					isPtr = true
+				}
+				req := reflect.New(elementType).Interface()
+				//bind
+				err := ctx.Bind(req)
+				if err != nil {
+					ctx.SetHttpStatusCode(http.StatusBadRequest)
+					ctx.SetError(echo.NewHTTPError(http.StatusBadRequest, err.Error()))
+				}
+				if !isPtr {
+					req = reflect.ValueOf(req).Elem().Interface()
+				}
+				ctx.SetReq(req)
 			}
-			req := reflect.New(elementType).Interface()
-			//bind
-			err := ctx.Bind(req)
-			if err != nil {
-				ctx.SetHttpStatusCode(http.StatusBadRequest)
-				ctx.SetError(echo.NewHTTPError(http.StatusBadRequest, err.Error()))
-			}
-			if !isPtr {
-				req = reflect.ValueOf(req).Elem().Interface()
-			}
-			ctx.SetReq(req)
 		}
-		h := applyMiddleware(____buildCall(handlerV, flags), m...)
+		h := applyMiddleware(____buildCall(), m...)
 		h(ctx)
 	}
 }
 
-func ____buildCall(handlerV reflect.Value, flags uint32) HandlerFunc {
+func ____buildCall() HandlerFunc {
 	return func(ctx Context) {
 		inParams := make([]reflect.Value, 0)
 		//has Ctx
-		if flags&handlerHasCtx != 0 {
+		if ctx.HasInCtxArg() {
 			inParams = append(inParams, reflect.ValueOf(ctx))
 		}
 		//has req data
-		if flags&handlerHasReqData != 0 {
+		if ctx.HasInReqArg() {
 			inParams = append(inParams, reflect.ValueOf(ctx.Req()))
 		}
+		handlerV := ctx.HandlerValue()
+		std.Assert(handlerV.Kind() == reflect.Func, "handler not func!")
 		outs := handlerV.Call(inParams)
 		rspErrIdx := -1
 		rspDataIdx := -1
 		//has rsp data
-		if flags&handlerHasRsp != 0 {
+		if ctx.HasOutRespArg() {
 			rspErrIdx = 1
 			rspDataIdx = 0
 		} else {
