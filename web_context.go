@@ -13,7 +13,7 @@ import (
 const HeaderFuncName = "BootX-Func-Name"
 
 //if DisableReqPreBind == true ,you should bind req yourself
-var DisableReqPreBind = true
+var DisableReqPreBind = false
 
 type Context interface {
 	echo.Context
@@ -243,28 +243,30 @@ func (this *WebX) BuildHttpHandler(handler interface{}, m ...MiddlewareFunc) ech
 
 func ____buildChain(m ...MiddlewareFunc) HandlerFunc {
 	return func(ctx Context) {
-		//if DisableReqPreBind== true ,you should bind req yourself
-		if !DisableReqPreBind {
-			if ctx.HasInReqArg() {
-				elementType := ctx.InType()
-				isPtr := false
-				if elementType.Kind() == reflect.Ptr {
-					elementType = elementType.Elem()
-					isPtr = true
-				}
-				req := reflect.New(elementType).Interface()
+
+		if ctx.HasInReqArg() {
+			elementType := ctx.InType()
+			isPtr := false
+			if elementType.Kind() == reflect.Ptr {
+				elementType = elementType.Elem()
+				isPtr = true
+			}
+			req := reflect.New(elementType).Interface()
+			//if DisableReqPreBind== true ,you should bind req yourself
+			if !DisableReqPreBind {
 				//bind
 				err := ctx.Bind(req)
 				if err != nil {
 					ctx.SetHttpStatusCode(http.StatusBadRequest)
 					ctx.SetError(echo.NewHTTPError(http.StatusBadRequest, err.Error()))
 				}
-				if !isPtr {
-					req = reflect.ValueOf(req).Elem().Interface()
-				}
-				ctx.SetReq(req)
 			}
+			if !isPtr {
+				req = reflect.ValueOf(req).Elem().Interface()
+			}
+			ctx.SetReq(req)
 		}
+
 		h := applyMiddleware(____buildCall(), m...)
 		h(ctx)
 	}

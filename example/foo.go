@@ -34,6 +34,7 @@ func (f FooApp) Bootstrap() {
 			func() (*FooResponse, error) {
 				return &FooResponse{Msg: "hello word"}, nil
 			}))
+	bootx.DisableReqPreBind = true
 	web.POST("/foo/bar",
 		web.BuildHttpHandler(
 			func(ctx bootx.Context, req *TestBindRequest) (*FooResponse, error) {
