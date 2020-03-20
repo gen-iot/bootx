@@ -25,6 +25,7 @@ func (f FooApp) Bootstrap() {
 	web := bootx.Web()
 	web.Use(middleware.BodyDump(middleware.DumpTextPlain | middleware.DumpForm | middleware.DumpJson))
 	web.PreUse(middleware.Dump())
+	bootx.EnableBindManyTimes = true
 	web.GET("", web.BuildHttpHandler(func(ctx bootx.Context) error {
 		return ctx.String(200, "hello word")
 	}))
@@ -33,6 +34,7 @@ func (f FooApp) Bootstrap() {
 			func() (*FooResponse, error) {
 				return &FooResponse{Msg: "hello word"}, nil
 			}))
+	bootx.DisableReqPreBind = true
 	web.POST("/foo/bar",
 		web.BuildHttpHandler(
 			func(ctx bootx.Context, req *TestBindRequest) (*FooResponse, error) {

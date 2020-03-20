@@ -32,6 +32,10 @@ func Bootstrap(app Application, configs ...interface{}) {
 	getKernel().waitForExit()
 }
 
+func Kill() {
+	getKernel().kill()
+}
+
 func initModules(configs ...interface{}) (webConf, dbConf, redisConf bool) {
 	for _, conf := range configs {
 		switch c := conf.(type) {

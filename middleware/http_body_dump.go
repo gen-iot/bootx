@@ -47,11 +47,13 @@ const (
 	DumpTextPlain
 	DumpXml
 	DumpJs
+	DumpAll
 )
 
 func DefaultBodyDumpHandler(option BodyDumpOption) BodyDumpHandler {
 	check := func(opt BodyDumpOption, ctype string) bool {
-		if (option&DumpForm != 0 && strings.Contains(ctype, echo.MIMEApplicationForm)) ||
+		if (option&DumpAll != 0 ||
+			option&DumpForm != 0 && strings.Contains(ctype, echo.MIMEApplicationForm)) ||
 			(option&DumpMultipartForm != 0 && strings.Contains(ctype, echo.MIMEMultipartForm)) ||
 			(option&DumpJson != 0 && strings.Contains(ctype, echo.MIMEApplicationJSON)) ||
 			(option&DumpHtml != 0 && strings.Contains(ctype, echo.MIMETextHTML)) ||
