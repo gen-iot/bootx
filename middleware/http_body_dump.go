@@ -64,12 +64,13 @@ func DefaultBodyDumpHandler(option BodyDumpOption) BodyDumpHandler {
 	}
 	return func(ctx echo.Context, reqData []byte, resData []byte, latency int64) {
 		ctxReq := ctx.Request()
+		realIp := ctx.RealIP()
 		reqCtype := ctxReq.Header.Get(echo.HeaderContentType)
 		respHeader := ctx.Response().Header()
 		resCtype := respHeader.Get(echo.HeaderContentType)
 		buf := bytes.Buffer{}
 		buf.WriteString(fmt.Sprintf("%s %s %s     latency : %d ms\n",
-			ctxReq.RemoteAddr, ctxReq.Method, ctxReq.RequestURI, latency))
+			realIp, ctxReq.Method, ctxReq.RequestURI, latency))
 		if option&DumpNone != 0 {
 			return
 		}

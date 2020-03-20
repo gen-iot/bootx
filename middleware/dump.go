@@ -28,7 +28,7 @@ func DefaultDumpHandler(ctx bootx.Context, in interface{}, out interface{}, late
 	ctxReq := ctx.Request()
 	buf := bytes.Buffer{}
 	buf.WriteString(fmt.Sprintf("\n< %s >    %s %s %s   latency : %d ms\n",
-		ctx.FuncName(), ctxReq.RemoteAddr, ctxReq.Method, ctxReq.RequestURI, latency))
+		ctx.FuncName(), ctx.RealIP(), ctxReq.Method, ctxReq.RequestURI, latency))
 	buf.WriteString("in :\n")
 	if in != nil {
 		bt, err := json.MarshalIndent(in, "", "  ")
